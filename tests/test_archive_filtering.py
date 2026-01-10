@@ -1,6 +1,7 @@
 from typing import List
 
 import pytest
+
 from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.schema import Law, LawCategory
 

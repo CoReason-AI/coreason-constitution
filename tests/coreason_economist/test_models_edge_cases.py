@@ -9,8 +9,9 @@
 # Source Code: https://github.com/CoReason-AI/coreason_constitution
 
 import pytest
-from coreason_economist.models import Budget, Cost
 from pydantic import ValidationError
+
+from coreason_economist.models import Budget, Cost
 
 
 def test_budget_negative_validation() -> None:

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import pytest
+
 from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.schema import Constitution, Law, LawCategory, LawSeverity
 
