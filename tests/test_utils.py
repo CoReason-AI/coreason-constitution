@@ -18,6 +18,9 @@ from coreason_constitution.utils.logger import logger
 
 def test_logger_initialization() -> None:
     """Test that the logger is initialized correctly and creates the log directory."""
+    # Remove all handlers to release file locks on Windows
+    logger.remove()
+
     # Force removal of logs directory to test creation
     log_path = Path("logs")
     if log_path.exists():
