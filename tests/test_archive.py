@@ -28,17 +28,24 @@ def test_law_model_validation(law_dict: Dict[str, Any]) -> None:
 
 
 def test_law_model_defaults() -> None:
-    # Explicitly using Enums to satisfy Mypy, although Pydantic allows strings
+    # Explicitly using Enums to satisfy Mypy
     law = Law(
         id="GXP.1",
         category=LawCategory.DOMAIN,
         text="No hallucinations.",
-        # Mypy requires optional fields if they are not explicitly Optional with default?
-        # No, 'source' has default None.
     )
     assert law.severity == LawSeverity.MEDIUM
     assert law.tags == []
     assert law.source is None
+
+
+def test_law_empty_strings() -> None:
+    # Test min_length constraint
+    with pytest.raises(ValueError):
+        Law(id="", category=LawCategory.UNIVERSAL, text="Valid text")
+
+    with pytest.raises(ValueError):
+        Law(id="VALID", category=LawCategory.UNIVERSAL, text="")
 
 
 def test_constitution_model() -> None:
@@ -55,7 +62,6 @@ def test_archive_load_not_found(tmp_path: Path) -> None:
 
 
 def test_archive_load_valid_json(tmp_path: Path) -> None:
-    # Create a dummy JSON file with a Constitution object
     data = {
         "version": "1.0.0",
         "laws": [{"id": "GXP.1", "category": "Domain", "text": "Do not hallucinate.", "severity": "Critical"}],
@@ -75,34 +81,91 @@ def test_archive_load_valid_json(tmp_path: Path) -> None:
     assert archive.version == "1.0.0"
 
 
-def test_archive_load_list_of_laws(tmp_path: Path) -> None:
-    # Create a dummy JSON file with a list of laws
-    data = [{"id": "TENANT.1", "category": "Tenant", "text": "No competitor mentions.", "severity": "Low"}]
+def test_archive_load_duplicate_ids(tmp_path: Path) -> None:
+    # Create two files with same Law ID
+    law1 = {
+        "id": "DUP.1",
+        "category": "Universal",
+        "text": "First definition",
+    }
+    law2 = {
+        "id": "DUP.1",
+        "category": "Universal",
+        "text": "Second definition",
+    }
 
-    d = tmp_path / "laws_list"
+    d = tmp_path / "dups"
     d.mkdir()
-    p = d / "laws.json"
-    p.write_text(json.dumps(data), encoding="utf-8")
+    (d / "1.json").write_text(json.dumps(law1), encoding="utf-8")
+    (d / "2.json").write_text(json.dumps(law2), encoding="utf-8")
+
+    archive = LegislativeArchive()
+    with pytest.raises(ValueError, match="Duplicate Law ID detected"):
+        archive.load_from_directory(d)
+
+
+def test_archive_recursive_loading(tmp_path: Path) -> None:
+    d = tmp_path / "recursive"
+    d.mkdir()
+    sub = d / "subdir"
+    sub.mkdir()
+
+    (d / "root.json").write_text(
+        json.dumps({"id": "ROOT.1", "category": "Universal", "text": "Root"}), encoding="utf-8"
+    )
+
+    (sub / "nested.json").write_text(
+        json.dumps({"id": "NESTED.1", "category": "Universal", "text": "Nested"}), encoding="utf-8"
+    )
 
     archive = LegislativeArchive()
     archive.load_from_directory(d)
 
     laws = archive.get_laws()
-    assert len(laws) == 1
-    assert laws[0].id == "TENANT.1"
+    ids = {law.id for law in laws}
+    assert "ROOT.1" in ids
+    assert "NESTED.1" in ids
+    assert len(laws) == 2
 
 
-def test_archive_load_single_law(tmp_path: Path) -> None:
-    data = {"id": "UNIV.2", "category": "Universal", "text": "Be polite.", "severity": "Low"}
-    d = tmp_path / "single"
+def test_archive_unicode_support(tmp_path: Path) -> None:
+    d = tmp_path / "unicode"
     d.mkdir()
-    p = d / "law.json"
-    p.write_text(json.dumps(data), encoding="utf-8")
+    # Japanese text
+    text = "こんにちは"
+    (d / "jp.json").write_text(json.dumps({"id": "JP.1", "category": "Universal", "text": text}), encoding="utf-8")
 
     archive = LegislativeArchive()
     archive.load_from_directory(d)
-    assert len(archive.get_laws()) == 1
-    assert archive.get_laws()[0].id == "UNIV.2"
+    assert archive.get_laws()[0].text == text
+
+
+def test_archive_mixed_content_types(tmp_path: Path) -> None:
+    d = tmp_path / "mixed_types"
+    d.mkdir()
+
+    # 1. Full Constitution
+    (d / "const.json").write_text(
+        json.dumps({"version": "1.0", "laws": [{"id": "C.1", "category": "Universal", "text": "Const Law"}]}),
+        encoding="utf-8",
+    )
+
+    # 2. List of Laws
+    (d / "list.json").write_text(
+        json.dumps([{"id": "L.1", "category": "Universal", "text": "List Law"}]), encoding="utf-8"
+    )
+
+    # 3. Single Law
+    (d / "single.json").write_text(
+        json.dumps({"id": "S.1", "category": "Universal", "text": "Single Law"}), encoding="utf-8"
+    )
+
+    archive = LegislativeArchive()
+    archive.load_from_directory(d)
+
+    assert len(archive.get_laws()) == 3
+    ids = {law.id for law in archive.get_laws()}
+    assert ids == {"C.1", "L.1", "S.1"}
 
 
 def test_archive_filtering(tmp_path: Path) -> None:

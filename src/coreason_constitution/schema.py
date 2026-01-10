@@ -18,9 +18,9 @@ class LawSeverity(str, Enum):
 
 
 class Law(BaseModel):
-    id: str = Field(..., description="Unique identifier for the law (e.g., 'GCP.1')")
+    id: str = Field(..., min_length=1, description="Unique identifier for the law (e.g., 'GCP.1')")
     category: LawCategory = Field(..., description="Category of the law")
-    text: str = Field(..., description="The actual text of the law/principle")
+    text: str = Field(..., min_length=1, description="The actual text of the law/principle")
     severity: LawSeverity = Field(default=LawSeverity.MEDIUM, description="Severity of violation")
     tags: List[str] = Field(default_factory=list, description="Tags for classification")
     source: Optional[str] = Field(default=None, description="Source reference (e.g., 'FDA 21 CFR')")
