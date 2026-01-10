@@ -65,14 +65,35 @@ class LegislativeArchive:
         self._laws = loaded_laws
         logger.info(f"LegislativeArchive loaded {len(self._laws)} laws total.")
 
-    def get_laws(self, categories: Optional[List[LawCategory]] = None) -> List[Law]:
+    def get_laws(
+        self,
+        categories: Optional[List[LawCategory]] = None,
+        context_tags: Optional[List[str]] = None,
+    ) -> List[Law]:
         """
-        Retrieve laws, optionally filtered by category.
-        """
-        if not categories:
-            return self._laws
+        Retrieve laws, optionally filtered by category and context tags.
 
-        return [law for law in self._laws if law.category in categories]
+        :param categories: List of LawCategory to include. If None, all categories are included.
+        :param context_tags: List of strings representing the current context (e.g. ["tenant:acme"]).
+                             If provided, a law is included ONLY if:
+                             1. It has NO tags (Universal application), OR
+                             2. At least one of its tags exists in `context_tags`.
+                             If None, all laws are included (subject to category filter).
+        :return: List of filtered Law objects.
+        """
+        filtered_laws = self._laws
+
+        # 1. Filter by Category
+        if categories:
+            filtered_laws = [law for law in filtered_laws if law.category in categories]
+
+        # 2. Filter by Context Tags
+        if context_tags is not None:
+            # Optimize by converting to set for O(1) lookups
+            context_set = set(context_tags)
+            filtered_laws = [law for law in filtered_laws if not law.tags or not set(law.tags).isdisjoint(context_set)]
+
+        return filtered_laws
 
     @property
     def version(self) -> str:
