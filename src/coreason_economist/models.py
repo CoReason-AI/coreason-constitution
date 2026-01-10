@@ -39,9 +39,11 @@ class Budget(BaseModel):
     Defines the limits for each currency.
     """
 
-    financial_limit: Optional[float] = Field(default=None, description="Max cost in USD per request/session.")
-    latency_limit_ms: Optional[int] = Field(default=None, description="Max latency in milliseconds.")
-    token_limit: Optional[int] = Field(default=None, description="Max total tokens (input + output).")
+    financial_limit: Optional[float] = Field(
+        default=None, ge=0.0, description="Max cost in USD per request/session."
+    )
+    latency_limit_ms: Optional[int] = Field(default=None, ge=0, description="Max latency in milliseconds.")
+    token_limit: Optional[int] = Field(default=None, ge=0, description="Max total tokens (input + output).")
 
 
 class Cost(BaseModel):
@@ -49,10 +51,10 @@ class Cost(BaseModel):
     Represents the cost of an action (estimated or actual).
     """
 
-    financial_cost: float = Field(default=0.0, description="Cost in USD.")
-    latency_ms: int = Field(default=0, description="Latency in milliseconds.")
-    input_tokens: int = Field(default=0, description="Number of input tokens.")
-    output_tokens: int = Field(default=0, description="Number of output tokens.")
+    financial_cost: float = Field(default=0.0, ge=0.0, description="Cost in USD.")
+    latency_ms: int = Field(default=0, ge=0, description="Latency in milliseconds.")
+    input_tokens: int = Field(default=0, ge=0, description="Number of input tokens.")
+    output_tokens: int = Field(default=0, ge=0, description="Number of output tokens.")
 
     @property
     def total_tokens(self) -> int:
