@@ -39,9 +39,7 @@ class Budget(BaseModel):
     Defines the limits for each currency.
     """
 
-    financial_limit: Optional[float] = Field(
-        default=None, ge=0.0, description="Max cost in USD per request/session."
-    )
+    financial_limit: Optional[float] = Field(default=None, ge=0.0, description="Max cost in USD per request/session.")
     latency_limit_ms: Optional[int] = Field(default=None, ge=0, description="Max latency in milliseconds.")
     token_limit: Optional[int] = Field(default=None, ge=0, description="Max total tokens (input + output).")
 

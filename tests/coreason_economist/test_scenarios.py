@@ -8,7 +8,8 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_constitution
 
-from coreason_economist.models import Budget, Cost, EconomicTrace, Decision
+from coreason_economist.models import Budget, Cost, Decision, EconomicTrace
+
 
 def check_budget(cost: Cost, budget: Budget) -> bool:
     """
@@ -23,6 +24,7 @@ def check_budget(cost: Cost, budget: Budget) -> bool:
         return False
     return True
 
+
 def test_budget_comparison_scenario() -> None:
     """
     Test a scenario where we evaluate if a request cost fits within a budget.
@@ -30,7 +32,7 @@ def test_budget_comparison_scenario() -> None:
     """
     # Case 1: Within limits
     budget = Budget(financial_limit=1.0, token_limit=1000)
-    cost = Cost(financial_cost=0.5, input_tokens=500, output_tokens=100) # total 600
+    cost = Cost(financial_cost=0.5, input_tokens=500, output_tokens=100)  # total 600
     assert check_budget(cost, budget) is True
 
     # Case 2: Exceeds financial
@@ -38,8 +40,9 @@ def test_budget_comparison_scenario() -> None:
     assert check_budget(expensive_cost, budget) is False
 
     # Case 3: Exceeds tokens
-    verbose_cost = Cost(input_tokens=800, output_tokens=300) # total 1100
+    verbose_cost = Cost(input_tokens=800, output_tokens=300)  # total 1100
     assert check_budget(verbose_cost, budget) is False
+
 
 def test_trace_serialization_scenario() -> None:
     """
@@ -54,7 +57,7 @@ def test_trace_serialization_scenario() -> None:
         actual_cost=cost,
         decision=Decision.APPROVED,
         voc_score=0.95,
-        reason="Good value"
+        reason="Good value",
     )
 
     data = trace.model_dump()

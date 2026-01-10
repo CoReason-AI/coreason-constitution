@@ -10,7 +10,9 @@
 
 import pytest
 from pydantic import ValidationError
+
 from coreason_economist.models import Budget, Cost
+
 
 def test_budget_negative_validation() -> None:
     """Test that Budget raises ValidationError for negative values."""
@@ -22,6 +24,7 @@ def test_budget_negative_validation() -> None:
 
     with pytest.raises(ValidationError):
         Budget(token_limit=-5)
+
 
 def test_cost_negative_validation() -> None:
     """Test that Cost raises ValidationError for negative values."""
@@ -37,12 +40,14 @@ def test_cost_negative_validation() -> None:
     with pytest.raises(ValidationError):
         Cost(output_tokens=-10)
 
+
 def test_budget_zero_values() -> None:
     """Test that zero values are accepted (boundary condition)."""
     budget = Budget(financial_limit=0.0, latency_limit_ms=0, token_limit=0)
     assert budget.financial_limit == 0.0
     assert budget.latency_limit_ms == 0
     assert budget.token_limit == 0
+
 
 def test_cost_zero_values() -> None:
     """Test that zero values are accepted (boundary condition)."""
@@ -51,6 +56,7 @@ def test_cost_zero_values() -> None:
     assert cost.latency_ms == 0
     assert cost.input_tokens == 0
     assert cost.output_tokens == 0
+
 
 def test_extreme_values() -> None:
     """Test handling of large values."""
