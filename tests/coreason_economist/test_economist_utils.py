@@ -12,8 +12,8 @@ import shutil
 from importlib import reload
 from pathlib import Path
 
-import coreason_constitution.utils.logger as logger_module
-from coreason_constitution.utils.logger import logger
+import coreason_economist.utils.logger as logger_module
+from coreason_economist.utils.logger import logger
 
 
 def test_logger_initialization() -> None:
