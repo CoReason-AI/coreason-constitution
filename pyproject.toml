@@ -5,11 +5,15 @@ description = "the judge"
 authors = ["Gowtham A Rao <gowtham.rao@coreason.ai>"]
 license = "Prosperity-3.0"
 readme = "README.md"
-packages = [{include = "coreason_constitution", from = "src"}]
+packages = [
+    {include = "coreason_constitution", from = "src"},
+    {include = "coreason_economist", from = "src"}
+]
 
 [tool.poetry.dependencies]
 python = ">=3.12, <3.15"
 loguru = "^0.7.2"
+pydantic = "^2.12.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -56,6 +60,8 @@ ignore = []
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+explicit_package_bases = true
+mypy_path = "src"
 
 [tool.pytest.ini_options]
 addopts = "--cov=src --cov-report=term-missing --cov-fail-under=100"
