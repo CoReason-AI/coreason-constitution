@@ -201,3 +201,111 @@ def test_edge_case_unicode_inputs(
 
     assert trace.input_draft == draft_response
     assert trace.revised_output == draft_response
+
+
+def test_compliance_cycle_complex_context_filtering(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+) -> None:
+    """
+    Verify that context tags are correctly passed to LegislativeArchive,
+    and the resulting subset of laws is passed to the Judge.
+    """
+    input_prompt = "Test"
+    draft_response = "Draft"
+    context_tags = ["tenant:A", "region:EU"]
+
+    # Setup: Archive returns a specific subset of laws
+    filtered_laws = [Law(id="GCP.1", category=LawCategory.DOMAIN, text="GCP Rule", tags=["region:EU"])]
+    mock_archive.get_laws.return_value = filtered_laws
+    mock_sentinel.check.return_value = None
+    mock_judge.evaluate.return_value = Critique(violation=False, reasoning="OK")
+
+    system.run_compliance_cycle(input_prompt, draft_response, context_tags=context_tags)
+
+    # Verify correct tags passed to Archive
+    mock_archive.get_laws.assert_called_once_with(context_tags=context_tags)
+    # Verify the filtered laws (and ONLY them) passed to Judge
+    mock_judge.evaluate.assert_called_once_with(draft_response, filtered_laws)
+
+
+def test_compliance_cycle_revision_no_change(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """
+    Verify that if RevisionEngine returns the exact same text (e.g. refused to change),
+    the delta is None, but violation status is preserved.
+    """
+    input_prompt = "Maybe bad"
+    draft_response = "Dubious content"
+
+    mock_sentinel.check.return_value = None
+    mock_archive.get_laws.return_value = []
+
+    # Judge says violation
+    mock_judge.evaluate.return_value = Critique(violation=True, reasoning="Use caution", article_id="L2")
+
+    # Revision says "I see nothing to fix" and returns original
+    mock_revision.revise.return_value = draft_response
+
+    trace = system.run_compliance_cycle(input_prompt, draft_response)
+
+    assert trace.critique.violation is True
+    assert trace.revised_output == draft_response
+    assert trace.delta is None  # No diff generated
+
+
+def test_compliance_cycle_judge_hallucinated_id(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """
+    Verify system robustness when Judge cites a Law ID that doesn't exist in the provided laws.
+    The System should simply pass the ID and Laws to RevisionEngine without crashing.
+    """
+    input_prompt = "Test"
+    draft_response = "Draft"
+    laws = [Law(id="EXISTING.1", category=LawCategory.UNIVERSAL, text="Real Law")]
+
+    mock_sentinel.check.return_value = None
+    mock_archive.get_laws.return_value = laws
+
+    # Judge returns unknown ID
+    mock_judge.evaluate.return_value = Critique(violation=True, reasoning="Violation", article_id="HALLUCINATED.99")
+    mock_revision.revise.return_value = "Revised"
+
+    trace = system.run_compliance_cycle(input_prompt, draft_response)
+
+    # Verify laws and critique passed to RevisionEngine
+    mock_revision.revise.assert_called_once()
+    call_args = mock_revision.revise.call_args
+    # args: (draft, critique, laws)
+    assert call_args[0][1].article_id == "HALLUCINATED.99"
+    assert call_args[0][2] == laws
+
+    assert trace.revised_output == "Revised"
+
+
+def test_archive_failure_propagates(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+) -> None:
+    """
+    Verify that if LegislativeArchive raises an exception (e.g. database/disk error),
+    it propagates up (fail-closed / system error) rather than being swallowed.
+    """
+    mock_sentinel.check.return_value = None
+    mock_archive.get_laws.side_effect = ValueError("Corrupt Archive")
+
+    with pytest.raises(ValueError, match="Corrupt Archive"):
+        system.run_compliance_cycle("Input", "Draft")
