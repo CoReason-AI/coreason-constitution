@@ -8,6 +8,7 @@ from coreason_constitution.schema import (
     ConstitutionalTrace,
     Critique,
     LawSeverity,
+    TraceIteration,
 )
 from coreason_constitution.sentinel import Sentinel
 from coreason_constitution.utils.diff import compute_unified_diff
@@ -42,7 +43,11 @@ class ConstitutionalSystem:
         self.revision_engine = revision_engine
 
     def run_compliance_cycle(
-        self, input_prompt: str, draft_response: str, context_tags: Optional[list[str]] = None
+        self,
+        input_prompt: str,
+        draft_response: str,
+        context_tags: Optional[list[str]] = None,
+        max_retries: int = 3,
     ) -> ConstitutionalTrace:
         """
         Executes the full constitutional compliance cycle.
@@ -50,12 +55,13 @@ class ConstitutionalSystem:
         1. Sentinel Check (Input): Scans input_prompt for red lines.
            - If violated: Returns an immediate Refusal trace.
         2. Judge Evaluation (Draft): Scans draft_response against active Laws.
-           - If violated: Triggers Revision Loop.
+           - If violated: Triggers Revision Loop (max_retries).
            - If compliant: Returns Approved trace.
 
         :param input_prompt: The user's original request.
         :param draft_response: The agent's proposed answer.
         :param context_tags: Optional context tags for law filtering.
+        :param max_retries: Maximum number of revision attempts.
         :return: A ConstitutionalTrace object documenting the process.
         """
         # 1. Sentinel Check
@@ -86,38 +92,82 @@ class ConstitutionalSystem:
             )
 
         # 2. Fetch Laws
-        # We fetch ALL categories (Universal, Domain, Tenant) by default.
-        # context_tags are passed down for filtering within those categories.
         active_laws = self.archive.get_laws(context_tags=context_tags)
 
-        # 3. Judge Evaluation
-        critique = self.judge.evaluate(draft_response, active_laws)
+        # 3. Initial Judge Evaluation
+        current_draft = draft_response
+        initial_critique = self.judge.evaluate(current_draft, active_laws)
 
-        if not critique.violation:
+        if not initial_critique.violation:
             # Happy path: No violations found
             return ConstitutionalTrace(
-                input_draft=draft_response, critique=critique, revised_output=draft_response, delta=None
+                input_draft=draft_response,
+                critique=initial_critique,
+                revised_output=draft_response,
+                delta=None,
             )
 
-        # 4. Revision Loop (Single Turn for Unit 1)
-        logger.info(f"ConstitutionalSystem: Violation detected ({critique.article_id}). Initiating revision.")
+        # 4. Revision Loop
+        logger.info(
+            f"ConstitutionalSystem: Violation detected ({initial_critique.article_id}). "
+            f"Initiating revision (max_retries={max_retries})."
+        )
 
-        try:
-            revised_output = self.revision_engine.revise(draft_response, critique, active_laws)
-        except Exception as e:
-            # If revision fails, we fall back to a system error critique or original?
-            # Ideally, we should probably fail-closed or return the error as the output.
-            # But the trace expects 'revised_output' to be the content.
-            # Let's log and return a special error message as the output to ensure safety.
-            logger.error(f"Revision failed: {e}")
-            revised_output = "Error: Constitutional Revision failed. Content withheld."
+        trace_history: list[TraceIteration] = []
+        current_critique = initial_critique
+        attempts = 0
 
-        # 5. Compute Diff
-        delta = compute_unified_diff(draft_response, revised_output)
+        while attempts < max_retries:
+            attempts += 1
+            logger.info(f"Revision Attempt {attempts}/{max_retries}")
+
+            try:
+                # A. Revise
+                revised_content = self.revision_engine.revise(current_draft, current_critique, active_laws)
+            except Exception as e:
+                logger.error(f"Revision failed on attempt {attempts}: {e}")
+                # If revision fails internally (LLM error), we stop and fail-closed
+                revised_content = "Error: Constitutional Revision failed. Content withheld."
+                # We break the loop and return this error state
+                break
+
+            # B. Evaluate Revision
+            # The Revised content becomes the draft for the next check
+            next_critique = self.judge.evaluate(revised_content, active_laws)
+
+            # C. Record Iteration
+            iteration = TraceIteration(
+                input_draft=current_draft,
+                critique=current_critique,
+                revised_output=revised_content,
+            )
+            trace_history.append(iteration)
+
+            # D. Update State
+            current_draft = revised_content
+            current_critique = next_critique
+
+            # E. Check Compliance
+            if not current_critique.violation:
+                logger.info(f"Revision Attempt {attempts} successful. Content is now compliant.")
+                # Compute diff from ORIGINAL draft to FINAL output
+                delta = compute_unified_diff(draft_response, current_draft)
+                return ConstitutionalTrace(
+                    input_draft=draft_response,
+                    critique=initial_critique,  # The initial violation
+                    revised_output=current_draft,
+                    delta=delta,
+                    history=trace_history,
+                )
+
+        # 5. Failure: Max Retries Exceeded or Exception Break
+        logger.warning("ConstitutionalSystem: Revision loop failed to produce compliant content.")
+        hard_refusal = "Safety Protocol Exception: Unable to generate compliant response."
 
         return ConstitutionalTrace(
             input_draft=draft_response,
-            critique=critique,
-            revised_output=revised_output,
-            delta=delta,
+            critique=initial_critique,
+            revised_output=hard_refusal,
+            delta=None,  # No diff for hard refusal
+            history=trace_history,
         )

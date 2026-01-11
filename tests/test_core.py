@@ -125,18 +125,25 @@ def test_compliance_cycle_violation(
     draft_response = "The sky is green"
     revised_response = "The sky is blue"
     laws = [Law(id="L1", category=LawCategory.UNIVERSAL, text="Tell truth")]
-    critique = Critique(violation=True, reasoning="Lying is bad", article_id="L1", severity=LawSeverity.HIGH)
+
+    critique_1 = Critique(violation=True, reasoning="Lying is bad", article_id="L1", severity=LawSeverity.HIGH)
+    critique_2 = Critique(violation=False, reasoning="Good", article_id=None)
 
     mock_sentinel.check.return_value = None
     mock_archive.get_laws.return_value = laws
-    mock_judge.evaluate.return_value = critique
+
+    # Judge call 1: Violation
+    # Judge call 2: Compliant
+    mock_judge.evaluate.side_effect = [critique_1, critique_2]
+
     mock_revision.revise.return_value = revised_response
 
     trace = system.run_compliance_cycle(input_prompt, draft_response)
 
     # Verify Logic
-    mock_judge.evaluate.assert_called_once_with(draft_response, laws)
-    mock_revision.revise.assert_called_once_with(draft_response, critique, laws)
+    # Judge called twice: initial, then post-revision
+    assert mock_judge.evaluate.call_count == 2
+    mock_revision.revise.assert_called_once_with(draft_response, critique_1, laws)
 
     assert trace.critique.violation is True
     assert trace.revised_output == revised_response
@@ -146,6 +153,11 @@ def test_compliance_cycle_violation(
     assert "+++ revised" in trace.delta
     assert "-The sky is green" in trace.delta
     assert "+The sky is blue" in trace.delta
+
+    # Verify History
+    assert len(trace.history) == 1
+    assert trace.history[0].input_draft == draft_response
+    assert trace.history[0].revised_output == revised_response
 
 
 def test_compliance_cycle_revision_failure(
@@ -168,8 +180,8 @@ def test_compliance_cycle_revision_failure(
 
     # System should catch exception and return a safe error message
     assert trace.critique.violation is True
-    assert "Error: Constitutional Revision failed" in trace.revised_output
-    assert trace.delta is not None  # It will be a diff between draft and error msg
+    assert "Safety Protocol Exception" in trace.revised_output
+    assert trace.delta is None  # Hard refusal = no diff
 
 
 def test_edge_case_empty_security_exception(system: ConstitutionalSystem, mock_sentinel: Mock) -> None:
@@ -231,7 +243,7 @@ def test_compliance_cycle_complex_context_filtering(
     mock_judge.evaluate.assert_called_once_with(draft_response, filtered_laws)
 
 
-def test_compliance_cycle_revision_no_change(
+def test_compliance_cycle_max_retries_exceeded(
     system: ConstitutionalSystem,
     mock_sentinel: Mock,
     mock_archive: Mock,
@@ -239,26 +251,35 @@ def test_compliance_cycle_revision_no_change(
     mock_revision: Mock,
 ) -> None:
     """
-    Verify that if RevisionEngine returns the exact same text (e.g. refused to change),
-    the delta is None, but violation status is preserved.
+    Verify that if RevisionEngine keeps failing (loop exhaustion),
+    the system returns a Hard Refusal.
     """
     input_prompt = "Maybe bad"
     draft_response = "Dubious content"
+    laws: list[Law] = []
 
     mock_sentinel.check.return_value = None
-    mock_archive.get_laws.return_value = []
+    mock_archive.get_laws.return_value = laws
 
-    # Judge says violation
-    mock_judge.evaluate.return_value = Critique(violation=True, reasoning="Use caution", article_id="L2")
+    # Judge ALWAYS says violation
+    violation = Critique(violation=True, reasoning="Still bad", article_id="L2")
+    mock_judge.evaluate.return_value = violation
 
-    # Revision says "I see nothing to fix" and returns original
-    mock_revision.revise.return_value = draft_response
+    # Revision returns "Tried my best" but Judge still rejects it
+    mock_revision.revise.return_value = "Tried my best"
 
-    trace = system.run_compliance_cycle(input_prompt, draft_response)
+    trace = system.run_compliance_cycle(input_prompt, draft_response, max_retries=3)
 
     assert trace.critique.violation is True
-    assert trace.revised_output == draft_response
-    assert trace.delta is None  # No diff generated
+    assert "Safety Protocol Exception" in trace.revised_output
+    assert trace.delta is None
+
+    # Judge called: 1 (Initial) + 3 (Loops) = 4
+    assert mock_judge.evaluate.call_count == 4
+    # Revision called: 3 times
+    assert mock_revision.revise.call_count == 3
+    # History length: 3
+    assert len(trace.history) == 3
 
 
 def test_compliance_cycle_judge_hallucinated_id(
@@ -270,7 +291,6 @@ def test_compliance_cycle_judge_hallucinated_id(
 ) -> None:
     """
     Verify system robustness when Judge cites a Law ID that doesn't exist in the provided laws.
-    The System should simply pass the ID and Laws to RevisionEngine without crashing.
     """
     input_prompt = "Test"
     draft_response = "Draft"
@@ -280,7 +300,10 @@ def test_compliance_cycle_judge_hallucinated_id(
     mock_archive.get_laws.return_value = laws
 
     # Judge returns unknown ID
-    mock_judge.evaluate.return_value = Critique(violation=True, reasoning="Violation", article_id="HALLUCINATED.99")
+    critique_1 = Critique(violation=True, reasoning="Violation", article_id="HALLUCINATED.99")
+    critique_2 = Critique(violation=False, reasoning="Fixed", article_id=None)
+
+    mock_judge.evaluate.side_effect = [critique_1, critique_2]
     mock_revision.revise.return_value = "Revised"
 
     trace = system.run_compliance_cycle(input_prompt, draft_response)
