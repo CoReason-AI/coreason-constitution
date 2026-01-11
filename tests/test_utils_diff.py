@@ -35,3 +35,21 @@ def test_compute_unified_diff_multiline() -> None:
     assert diff is not None
     assert "-Line 2" in diff
     assert "+Line 2 Modified" in diff
+
+
+def test_compute_unified_diff_whitespace() -> None:
+    original = "A B"
+    revised = "A  B"
+    diff = compute_unified_diff(original, revised)
+    assert diff is not None
+    assert "-A B" in diff
+    assert "+A  B" in diff
+
+
+def test_compute_unified_diff_unicode() -> None:
+    original = "Hello 🌍"
+    revised = "Hello 🪐"
+    diff = compute_unified_diff(original, revised)
+    assert diff is not None
+    assert "-Hello 🌍" in diff
+    assert "+Hello 🪐" in diff

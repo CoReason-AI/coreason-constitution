@@ -17,7 +17,7 @@ def compute_unified_diff(
     original_lines = original.splitlines(keepends=True)
     revised_lines = revised.splitlines(keepends=True)
 
-    diff = list(difflib.unified_diff(original_lines, revised_lines, fromfile=fromfile, tofile=tofile, lineterm=""))
+    diff = list(difflib.unified_diff(original_lines, revised_lines, fromfile=fromfile, tofile=tofile))
 
     if not diff:
         return None
