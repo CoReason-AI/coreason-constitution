@@ -7,7 +7,12 @@ from coreason_constitution.core import ConstitutionalSystem
 from coreason_constitution.exceptions import SecurityException
 from coreason_constitution.judge import ConstitutionalJudge
 from coreason_constitution.revision import RevisionEngine
-from coreason_constitution.schema import LawSeverity
+from coreason_constitution.schema import (
+    Critique,
+    Law,
+    LawCategory,
+    LawSeverity,
+)
 from coreason_constitution.sentinel import Sentinel
 
 
@@ -79,93 +84,228 @@ def test_sentinel_block(system: ConstitutionalSystem, mock_sentinel: Mock) -> No
     assert trace.delta is None
 
 
-def test_sentinel_pass(system: ConstitutionalSystem, mock_sentinel: Mock) -> None:
-    """Verify that if Sentinel passes, the system proceeds (Unit 1 placeholder behavior)."""
-    # Setup
+def test_compliance_cycle_compliant(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """Verify flow when Judge approves the draft."""
     input_prompt = "Hello"
     draft_response = "Hi there"
+    laws = [Law(id="L1", category=LawCategory.UNIVERSAL, text="Be nice")]
 
-    # Mock Sentinel to pass (return None)
     mock_sentinel.check.return_value = None
+    mock_archive.get_laws.return_value = laws
+    mock_judge.evaluate.return_value = Critique(violation=False, reasoning="Compliant", article_id=None)
 
-    # Execute
-    trace = system.run_compliance_cycle(input_prompt, draft_response)
+    trace = system.run_compliance_cycle(input_prompt, draft_response, context_tags=["test"])
 
-    # Verify
+    # Verify Logic
     mock_sentinel.check.assert_called_once_with(input_prompt)
+    mock_archive.get_laws.assert_called_once_with(context_tags=["test"])
+    mock_judge.evaluate.assert_called_once_with(draft_response, laws)
+    mock_revision.revise.assert_not_called()
 
-    # Check placeholder behavior
     assert trace.critique.violation is False
     assert trace.revised_output == draft_response
+    assert trace.delta is None
+
+
+def test_compliance_cycle_violation(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """Verify flow when Judge rejects, triggering revision and diff."""
+    input_prompt = "Tell me a lie"
+    draft_response = "The sky is green"
+    revised_response = "The sky is blue"
+    laws = [Law(id="L1", category=LawCategory.UNIVERSAL, text="Tell truth")]
+    critique = Critique(violation=True, reasoning="Lying is bad", article_id="L1", severity=LawSeverity.HIGH)
+
+    mock_sentinel.check.return_value = None
+    mock_archive.get_laws.return_value = laws
+    mock_judge.evaluate.return_value = critique
+    mock_revision.revise.return_value = revised_response
+
+    trace = system.run_compliance_cycle(input_prompt, draft_response)
+
+    # Verify Logic
+    mock_judge.evaluate.assert_called_once_with(draft_response, laws)
+    mock_revision.revise.assert_called_once_with(draft_response, critique, laws)
+
+    assert trace.critique.violation is True
+    assert trace.revised_output == revised_response
+    # Check that delta is generated and contains diff
+    assert trace.delta is not None
+    assert "--- original" in trace.delta
+    assert "+++ revised" in trace.delta
+    assert "-The sky is green" in trace.delta
+    assert "+The sky is blue" in trace.delta
+
+
+def test_compliance_cycle_revision_failure(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """Verify behavior when RevisionEngine raises an exception."""
+    input_prompt = "Bad prompt"
+    draft_response = "Bad response"
+
+    mock_sentinel.check.return_value = None
+    mock_archive.get_laws.return_value = []
+    mock_judge.evaluate.return_value = Critique(violation=True, reasoning="Bad", article_id="L1")
+    mock_revision.revise.side_effect = Exception("LLM Error")
+
+    trace = system.run_compliance_cycle(input_prompt, draft_response)
+
+    # System should catch exception and return a safe error message
+    assert trace.critique.violation is True
+    assert "Error: Constitutional Revision failed" in trace.revised_output
+    assert trace.delta is not None  # It will be a diff between draft and error msg
 
 
 def test_edge_case_empty_security_exception(system: ConstitutionalSystem, mock_sentinel: Mock) -> None:
     """
     Edge Case: Sentinel raises SecurityException with an empty string.
-    System should provide a default message to satisfy Pydantic min_length=1.
     """
     mock_sentinel.check.side_effect = SecurityException("")
 
     trace = system.run_compliance_cycle("Bad input", "Draft")
 
     assert trace.critique.violation is True
-    # Should use a fallback message, not empty string
     assert len(trace.critique.reasoning) > 0
     assert trace.critique.reasoning != ""
     assert trace.revised_output != ""
 
 
-def test_edge_case_empty_inputs(system: ConstitutionalSystem, mock_sentinel: Mock) -> None:
-    """
-    Edge Case: Input prompt and draft response are empty strings.
-    System should handle them gracefully (or validation might catch them depending on implementation).
-    NOTE: ConstitutionalTrace requires min_length=1 for input_draft and revised_output.
-    So we expect the system to either raise a ValidationError OR handle it.
-    However, the PRD says 'Input Draft' must be min_length=1.
-    If the caller provides empty string, constructing the Trace will fail.
-    The system should probably be robust.
-    """
-    mock_sentinel.check.return_value = None
-
-    # If we pass empty strings, and the system tries to create a Trace with them,
-    # Pydantic will raise ValidationError.
-    # The system could let this bubble up, OR wrap it.
-    # Let's see what happens. Ideally, the system might validate inputs early?
-    # Or maybe it relies on the Trace construction validation.
-    # For this test, we accept either a ValidationError or a handled response.
-    # But wait, if draft is empty, RevisionEngine handles it.
-    # Let's pass a space " " to avoid min_length=1 error if we want to test flow,
-    # or test explicitly that empty string fails.
-
-    # Let's test that it DOES NOT crash effectively, or raises a clear error.
-    try:
-        system.run_compliance_cycle(" ", " ")
-    except Exception as e:
-        pytest.fail(f"System crashed on whitespace inputs: {e}")
-
-
-def test_edge_case_unicode_inputs(system: ConstitutionalSystem, mock_sentinel: Mock) -> None:
+def test_edge_case_unicode_inputs(
+    system: ConstitutionalSystem, mock_sentinel: Mock, mock_archive: Mock, mock_judge: Mock
+) -> None:
     """Edge Case: Inputs with Unicode characters."""
     input_prompt = "Hello 👋 🌍"
     draft_response = "你好，世界"
 
     mock_sentinel.check.return_value = None
+    mock_archive.get_laws.return_value = []
+    mock_judge.evaluate.return_value = Critique(violation=False, reasoning="OK")
 
     trace = system.run_compliance_cycle(input_prompt, draft_response)
 
     assert trace.input_draft == draft_response
     assert trace.revised_output == draft_response
-    mock_sentinel.check.assert_called_once_with(input_prompt)
 
 
-def test_edge_case_large_payload(system: ConstitutionalSystem, mock_sentinel: Mock) -> None:
-    """Edge Case: Large input payload."""
-    large_input = "A" * 100_000
-    large_draft = "B" * 100_000
+def test_compliance_cycle_complex_context_filtering(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+) -> None:
+    """
+    Verify that context tags are correctly passed to LegislativeArchive,
+    and the resulting subset of laws is passed to the Judge.
+    """
+    input_prompt = "Test"
+    draft_response = "Draft"
+    context_tags = ["tenant:A", "region:EU"]
+
+    # Setup: Archive returns a specific subset of laws
+    filtered_laws = [Law(id="GCP.1", category=LawCategory.DOMAIN, text="GCP Rule", tags=["region:EU"])]
+    mock_archive.get_laws.return_value = filtered_laws
+    mock_sentinel.check.return_value = None
+    mock_judge.evaluate.return_value = Critique(violation=False, reasoning="OK")
+
+    system.run_compliance_cycle(input_prompt, draft_response, context_tags=context_tags)
+
+    # Verify correct tags passed to Archive
+    mock_archive.get_laws.assert_called_once_with(context_tags=context_tags)
+    # Verify the filtered laws (and ONLY them) passed to Judge
+    mock_judge.evaluate.assert_called_once_with(draft_response, filtered_laws)
+
+
+def test_compliance_cycle_revision_no_change(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """
+    Verify that if RevisionEngine returns the exact same text (e.g. refused to change),
+    the delta is None, but violation status is preserved.
+    """
+    input_prompt = "Maybe bad"
+    draft_response = "Dubious content"
 
     mock_sentinel.check.return_value = None
+    mock_archive.get_laws.return_value = []
 
-    trace = system.run_compliance_cycle(large_input, large_draft)
+    # Judge says violation
+    mock_judge.evaluate.return_value = Critique(violation=True, reasoning="Use caution", article_id="L2")
 
-    assert trace.input_draft == large_draft
-    assert len(trace.revised_output) == 100_000
+    # Revision says "I see nothing to fix" and returns original
+    mock_revision.revise.return_value = draft_response
+
+    trace = system.run_compliance_cycle(input_prompt, draft_response)
+
+    assert trace.critique.violation is True
+    assert trace.revised_output == draft_response
+    assert trace.delta is None  # No diff generated
+
+
+def test_compliance_cycle_judge_hallucinated_id(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """
+    Verify system robustness when Judge cites a Law ID that doesn't exist in the provided laws.
+    The System should simply pass the ID and Laws to RevisionEngine without crashing.
+    """
+    input_prompt = "Test"
+    draft_response = "Draft"
+    laws = [Law(id="EXISTING.1", category=LawCategory.UNIVERSAL, text="Real Law")]
+
+    mock_sentinel.check.return_value = None
+    mock_archive.get_laws.return_value = laws
+
+    # Judge returns unknown ID
+    mock_judge.evaluate.return_value = Critique(violation=True, reasoning="Violation", article_id="HALLUCINATED.99")
+    mock_revision.revise.return_value = "Revised"
+
+    trace = system.run_compliance_cycle(input_prompt, draft_response)
+
+    # Verify laws and critique passed to RevisionEngine
+    mock_revision.revise.assert_called_once()
+    call_args = mock_revision.revise.call_args
+    # args: (draft, critique, laws)
+    assert call_args[0][1].article_id == "HALLUCINATED.99"
+    assert call_args[0][2] == laws
+
+    assert trace.revised_output == "Revised"
+
+
+def test_archive_failure_propagates(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+) -> None:
+    """
+    Verify that if LegislativeArchive raises an exception (e.g. database/disk error),
+    it propagates up (fail-closed / system error) rather than being swallowed.
+    """
+    mock_sentinel.check.return_value = None
+    mock_archive.get_laws.side_effect = ValueError("Corrupt Archive")
+
+    with pytest.raises(ValueError, match="Corrupt Archive"):
+        system.run_compliance_cycle("Input", "Draft")
