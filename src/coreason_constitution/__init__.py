@@ -17,6 +17,14 @@ __author__ = "Gowtham A Rao"
 __email__ = "gowtham.rao@coreason.ai"
 
 from .archive import LegislativeArchive
+from .judge import ConstitutionalJudge
 from .schema import Constitution, Law, LawCategory, LawSeverity
 
-__all__ = ["LegislativeArchive", "Constitution", "Law", "LawCategory", "LawSeverity"]
+__all__ = [
+    "LegislativeArchive",
+    "Constitution",
+    "Law",
+    "LawCategory",
+    "LawSeverity",
+    "ConstitutionalJudge",
+]
