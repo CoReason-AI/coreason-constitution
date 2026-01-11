@@ -17,7 +17,7 @@ class MockLLMClient(LLMClient):
         self.responses: Dict[str, str] = {}
         self.structured_responses: Dict[str, BaseModel] = {}
         self.default_text_response: str = "Mock response"
-        self.last_messages: List[Dict[str, str]] = []
+        self.calls: List[Dict[str, Any]] = []  # Store full call history
         self.call_count: int = 0
 
     def set_response(self, trigger: str, response: str) -> None:
@@ -33,6 +33,24 @@ class MockLLMClient(LLMClient):
         """
         self.structured_responses[trigger] = response
 
+    @property
+    def last_call(self) -> Dict[str, Any]:
+        """Return the arguments of the last call."""
+        if not self.calls:
+            return {}
+        return self.calls[-1]
+
+    @property
+    def last_messages(self) -> List[Dict[str, str]]:
+        """Backwards compatibility accessor."""
+        if not self.calls:
+            return []
+        # Explicit cast to satisfy mypy
+        msgs = self.calls[-1].get("messages", [])
+        if isinstance(msgs, list):
+            return msgs
+        return []
+
     def chat_completion(
         self,
         messages: List[Dict[str, str]],
@@ -41,7 +59,15 @@ class MockLLMClient(LLMClient):
         **kwargs: Any,
     ) -> str:
         self.call_count += 1
-        self.last_messages = messages
+        self.calls.append(
+            {
+                "method": "chat_completion",
+                "messages": messages,
+                "model": model,
+                "temperature": temperature,
+                "kwargs": kwargs,
+            }
+        )
 
         # Simple logic: check if any trigger is in the last message content
         last_content = messages[-1]["content"] if messages else ""
@@ -61,7 +87,16 @@ class MockLLMClient(LLMClient):
         **kwargs: Any,
     ) -> T:
         self.call_count += 1
-        self.last_messages = messages
+        self.calls.append(
+            {
+                "method": "structured_output",
+                "messages": messages,
+                "response_model": response_model,
+                "model": model,
+                "temperature": temperature,
+                "kwargs": kwargs,
+            }
+        )
 
         last_content = messages[-1]["content"] if messages else ""
 
