@@ -76,6 +76,65 @@ class TestSentinel:
             sentinel.check("This is bad content")
 
 
+class TestSentinelComplexScenarios:
+    def test_large_payload(self) -> None:
+        """Test Sentinel behavior with a large payload (1MB)."""
+        rules = [SentinelRule(id="SR.1", pattern=r"malicious", description="Bad stuff")]
+        sentinel = Sentinel(rules)
+
+        # 1MB string
+        large_safe = "safe " * 200000
+        sentinel.check(large_safe)  # Should not raise or hang
+
+        # 1MB string with violation at end
+        large_unsafe = large_safe + "malicious"
+        with pytest.raises(SecurityException, match="SR.1"):
+            sentinel.check(large_unsafe)
+
+    def test_multiline_anchor_behavior(self) -> None:
+        """Test that ^ matches start of line in multiline input (due to re.MULTILINE)."""
+        rules = [SentinelRule(id="SR.ML", pattern=r"^forbidden", description="Must not start line")]
+        sentinel = Sentinel(rules)
+
+        # Should match on second line
+        content = "Line 1 is okay\nforbidden on line 2"
+        with pytest.raises(SecurityException, match="SR.ML"):
+            sentinel.check(content)
+
+    def test_rule_priority(self) -> None:
+        """Test that the first matching rule in the list is the one reported."""
+        rules = [
+            SentinelRule(id="SR.FIRST", pattern=r"bad", description="First rule"),
+            SentinelRule(id="SR.SECOND", pattern=r"bad", description="Second rule"),
+        ]
+        sentinel = Sentinel(rules)
+
+        with pytest.raises(SecurityException, match="SR.FIRST"):
+            sentinel.check("This is bad")
+
+    def test_unicode_handling(self) -> None:
+        """Test handling of unicode characters and homoglyphs."""
+        rules = [SentinelRule(id="SR.UNI", pattern=r"bad", description="Standard ASCII match")]
+        sentinel = Sentinel(rules)
+
+        # Standard ASCII
+        with pytest.raises(SecurityException, match="SR.UNI"):
+            sentinel.check("This is bad")
+
+        # Homoglyph (Cyrillic 'a') - Should NOT match standard ASCII regex
+        # Cyrillic 'a' is U+0430
+        cyrillic_bad = "b\u0430d"
+        sentinel.check(cyrillic_bad)  # Should pass
+
+        # Regex targeting unicode property or specific char
+        # Note: Python's re module has limited Unicode support compared to `regex` module,
+        # but supports basic matching.
+        rules_uni = [SentinelRule(id="SR.CYR", pattern=r"b\u0430d", description="Cyrillic match")]
+        sentinel_uni = Sentinel(rules_uni)
+        with pytest.raises(SecurityException, match="SR.CYR"):
+            sentinel_uni.check(cyrillic_bad)
+
+
 class TestSentinelIntegration:
     def test_archive_loads_sentinel_rules(self, tmp_path: Path) -> None:
         """Test that LegislativeArchive correctly loads SentinelRules from JSON."""

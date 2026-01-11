@@ -25,8 +25,10 @@ class Sentinel:
         # Pre-compile regex patterns for performance
         for rule in rules:
             try:
-                # Compile regex with Ignore Case flag for broader matching
-                pattern = re.compile(rule.pattern, re.IGNORECASE)
+                # Compile regex with Ignore Case and Multiline flags
+                # re.IGNORECASE: Matches 'drop' and 'DROP'
+                # re.MULTILINE: '^' matches start of line, '$' matches end of line
+                pattern = re.compile(rule.pattern, re.IGNORECASE | re.MULTILINE)
                 self._compiled_patterns.append((rule, pattern))
             except re.error as e:
                 logger.error(f"Invalid regex pattern for rule {rule.id}: {rule.pattern} - {e}")
