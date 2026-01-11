@@ -63,15 +63,19 @@ class ConstitutionalSystem:
         except SecurityException as e:
             logger.warning(f"ConstitutionalSystem: Sentinel blocked request. Reason: {e}")
 
+            reason = str(e)
+            if not reason:
+                reason = "Unknown Security Protocol Violation"
+
             # Construct a synthetic critique for the sentinel violation
             critique = Critique(
                 violation=True,
                 article_id="SENTINEL_BLOCK",
                 severity=LawSeverity.CRITICAL,
-                reasoning=str(e),
+                reasoning=reason,
             )
 
-            refusal_message = str(e)
+            refusal_message = reason
 
             return ConstitutionalTrace(
                 input_draft=draft_response,  # The draft that was never shown
