@@ -26,9 +26,16 @@ class Law(BaseModel):
     source: Optional[str] = Field(default=None, description="Source reference (e.g., 'FDA 21 CFR')")
 
 
+class SentinelRule(BaseModel):
+    id: str = Field(..., min_length=1, description="Unique identifier for the rule (e.g., 'SR.1')")
+    pattern: str = Field(..., min_length=1, description="Regex pattern to match")
+    description: str = Field(..., min_length=1, description="Description of the rule")
+
+
 class Constitution(BaseModel):
     version: str = Field(..., description="Version of this constitution set")
     laws: List[Law] = Field(default_factory=list, description="List of laws")
+    sentinel_rules: List[SentinelRule] = Field(default_factory=list, description="List of Sentinel red line rules")
 
 
 class Critique(BaseModel):
