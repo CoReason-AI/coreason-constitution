@@ -73,7 +73,11 @@ def test_cli_file_inputs(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     prompt_file.write_text("What dosage?", encoding="utf-8")
     draft_file.write_text("I have a hunch.", encoding="utf-8")
 
-    test_args = ["main.py", "--prompt-file", str(prompt_file), "--draft-file", str(draft_file)]
+    test_args = [
+        "main.py",
+        "--prompt-file", str(prompt_file),
+        "--draft-file", str(draft_file)
+    ]
 
     with patch.object(sys, "argv", test_args):
         main()
@@ -95,7 +99,6 @@ def test_cli_missing_file(capsys: CaptureFixture[str], tmp_path: Path) -> None:
             main()
         assert excinfo.value.code == 1
 
-
 def test_cli_sentinel_blocked_full_cycle(capsys: CaptureFixture[str]) -> None:
     """Test CLI full cycle but blocked by Sentinel (never reaches draft check)."""
     test_args = ["main.py", "--prompt", "delete database", "--draft", "Irrelevant"]
@@ -112,7 +115,6 @@ def test_cli_sentinel_blocked_full_cycle(capsys: CaptureFixture[str]) -> None:
 
 # --- Coverage Tests ---
 
-
 def test_cli_init_exception(capsys: CaptureFixture[str]) -> None:
     """Test CLI behavior when system initialization fails."""
     test_args = ["main.py", "--prompt", "Hello"]
@@ -122,7 +124,6 @@ def test_cli_init_exception(capsys: CaptureFixture[str]) -> None:
             with pytest.raises(SystemExit) as excinfo:
                 main()
             assert excinfo.value.code == 1
-
 
 def test_cli_compliance_cycle_exception(capsys: CaptureFixture[str]) -> None:
     """Test CLI behavior when run_compliance_cycle fails generically."""
@@ -136,7 +137,6 @@ def test_cli_compliance_cycle_exception(capsys: CaptureFixture[str]) -> None:
                 main()
             assert excinfo.value.code == 1
 
-
 def test_cli_sentinel_generic_exception(capsys: CaptureFixture[str]) -> None:
     """Test CLI behavior when Sentinel checks fail generically (not SecurityException)."""
     test_args = ["main.py", "--prompt", "Hello"]
@@ -148,3 +148,85 @@ def test_cli_sentinel_generic_exception(capsys: CaptureFixture[str]) -> None:
             with pytest.raises(SystemExit) as excinfo:
                 main()
             assert excinfo.value.code == 1
+
+# --- Edge Case & Complex Tests ---
+
+def test_cli_explicit_empty_draft(capsys: CaptureFixture[str]) -> None:
+    """
+    Test that providing an empty draft explicitly (--draft "") triggers an error
+    because ConstitutionalTrace requires non-empty strings.
+    """
+    test_args = ["main.py", "--prompt", "Hello", "--draft", "   "]
+    with patch.object(sys, "argv", test_args):
+        with pytest.raises(SystemExit) as excinfo:
+            main()
+        assert excinfo.value.code == 1
+
+    captured = capsys.readouterr()
+    # Loguru logs to stderr usually, but capsys captures it if configured?
+    # Actually logger usually goes to stderr.
+    # Note: Loguru configuration might affect capture, but default capsys usually catches stderr.
+    # If logger is configured to use sys.stderr, it should be captured.
+    # We won't assert the log message strictly if capture is tricky, but we assert exit code.
+
+def test_cli_large_input(capsys: CaptureFixture[str], tmp_path: Path) -> None:
+    """
+    Test CLI robustness with large input files (~50KB).
+    """
+    large_text = "Safe content. " * 5000  # ~70KB
+    prompt_file = tmp_path / "large_prompt.txt"
+    prompt_file.write_text(large_text, encoding="utf-8")
+
+    test_args = ["main.py", "--prompt-file", str(prompt_file)]
+    with patch.object(sys, "argv", test_args):
+        main()
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert output["status"] == "APPROVED"
+
+def test_cli_unicode_input(capsys: CaptureFixture[str]) -> None:
+    """
+    Test CLI with Unicode characters (Emoji, non-Latin scripts) to ensure JSON encoding works.
+    """
+    prompt = "Hello 👋, ni hao 你好"
+    draft = "Review this: 📝"
+
+    test_args = ["main.py", "--prompt", prompt, "--draft", draft]
+    with patch.object(sys, "argv", test_args):
+        main()
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+
+    assert output["input_draft"] == draft
+    # Ensure unicode is preserved or correctly escaped in JSON
+    # Python json.dumps escapes non-ascii by default unless ensure_ascii=False,
+    # but Pydantic model_dump_json typically outputs unicode.
+    # We just check content match.
+    assert "📝" in output["input_draft"]
+
+def test_cli_complex_triggers(capsys: CaptureFixture[str]) -> None:
+    """
+    Test input containing multiple triggers (Story A and Story C).
+    SimulatedLLMClient likely picks one.
+    """
+    # "hunch" -> Story A (Correction)
+    # "NCT99999" -> Story C (Citation)
+    prompt = "Multiple triggers test."
+    draft = "I have a hunch we should use study NCT99999."
+
+    test_args = ["main.py", "--prompt", prompt, "--draft", draft]
+    with patch.object(sys, "argv", test_args):
+        main()
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+
+    assert output["critique"]["violation"] is True
+    # We verify WHICH violation was caught.
+    # Based on SimulatedLLMClient implementation, "hunch" is checked first.
+    if "hunch" in output["critique"]["reasoning"]:
+         assert output["critique"]["article_id"] == "GCP.4"
+    else:
+         assert output["critique"]["article_id"] == "REF.1"

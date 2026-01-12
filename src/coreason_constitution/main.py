@@ -16,7 +16,7 @@ from coreason_constitution.utils.logger import logger
 
 def load_input(text: Optional[str], file_path: Optional[str]) -> Optional[str]:
     """Helper to load input from text arg or file path."""
-    if text:
+    if text is not None:
         return text
     if file_path:
         try:
@@ -71,7 +71,11 @@ def main() -> None:
         sys.exit(1)
 
     # Execution Logic
-    if draft_response:
+    if draft_response is not None:
+        if not draft_response.strip():
+            logger.error("Draft content cannot be empty.")
+            sys.exit(1)
+
         # Full Compliance Cycle
         try:
             trace = system.run_compliance_cycle(input_prompt, draft_response)
