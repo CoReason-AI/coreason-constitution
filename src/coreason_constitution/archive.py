@@ -12,6 +12,18 @@ class LegislativeArchive:
         self._sentinel_rules: List[SentinelRule] = []
         self._version: str = "0.0.0"
 
+    def load_defaults(self) -> None:
+        """
+        Loads the default laws and sentinel rules packaged with the library.
+        These are located in src/coreason_constitution/defaults.
+        """
+        defaults_path = Path(__file__).parent / "defaults"
+        if defaults_path.exists():
+            logger.info(f"Loading defaults from {defaults_path}")
+            self.load_from_directory(defaults_path)
+        else:
+            logger.warning(f"Defaults directory not found at {defaults_path}")
+
     def load_from_directory(self, directory_path: str | Path) -> None:
         """
         Loads laws from all JSON files in the specified directory recursively.
@@ -52,12 +64,19 @@ class LegislativeArchive:
                 # Handle if the file is just a list of laws
                 elif isinstance(content, list):
                     for item in content:
-                        new_laws.append(Law(**item))
+                        # Attempt to parse as Law or SentinelRule based on fields
+                        # This is a bit heuristic. Law requires 'category', SentinelRule requires 'pattern'.
+                        if "pattern" in item:
+                            new_rules.append(SentinelRule(**item))
+                        else:
+                            new_laws.append(Law(**item))
 
-                # Handle single law object
+                # Handle single object
                 elif isinstance(content, dict):
-                    # Fallback: assume it is a Law if it's a dict and not identified as Constitution
-                    new_laws.append(Law(**content))
+                    if "pattern" in content:
+                        new_rules.append(SentinelRule(**content))
+                    else:
+                        new_laws.append(Law(**content))
 
                 # Check for duplicates before adding laws
                 for law in new_laws:
