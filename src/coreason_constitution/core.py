@@ -131,6 +131,12 @@ class ConstitutionalSystem:
                 # We break the loop and return this error state
                 break
 
+            # Check for empty revision (which would fail Pydantic validation)
+            if not revised_content or not revised_content.strip():
+                logger.error(f"Revision attempt {attempts} returned empty content.")
+                revised_content = "Error: Constitutional Revision returned empty content."
+                break
+
             # B. Evaluate Revision
             # The Revised content becomes the draft for the next check
             next_critique = self.judge.evaluate(revised_content, active_laws)
