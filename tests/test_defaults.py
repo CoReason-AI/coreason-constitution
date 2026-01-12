@@ -32,6 +32,20 @@ def test_load_defaults() -> None:
     assert ref_law.category == LawCategory.DOMAIN
     assert "citations" in ref_law.text
 
+    # Check for UNI.1 (Universal Hate Speech)
+    uni_law = next((law for law in laws if law.id == "UNI.1"), None)
+    assert uni_law is not None
+    assert uni_law.category == LawCategory.UNIVERSAL
+    assert "hate speech" in uni_law.text
+    assert len(uni_law.tags) == 0
+
+    # Check for TEN.1 (Tenant Competitor X)
+    ten_law = next((law for law in laws if law.id == "TEN.1"), None)
+    assert ten_law is not None
+    assert ten_law.category == LawCategory.TENANT
+    assert "Competitor X" in ten_law.text
+    assert "tenant:acme" in ten_law.tags
+
     # 2. Verify Sentinel Rules
     rules = archive.get_sentinel_rules()
     assert len(rules) >= 1, "Should load at least 1 default sentinel rule (SEC.1)"
