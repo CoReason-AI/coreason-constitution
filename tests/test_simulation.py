@@ -1,11 +1,14 @@
 import pytest
 from pydantic import BaseModel
-from coreason_constitution.simulation import SimulatedLLMClient
+
 from coreason_constitution.schema import Critique, LawSeverity
+from coreason_constitution.simulation import SimulatedLLMClient
+
 
 @pytest.fixture  # type: ignore
 def client() -> SimulatedLLMClient:
     return SimulatedLLMClient()
+
 
 def test_judge_story_a_gxp(client: SimulatedLLMClient) -> None:
     """Test Story A (GxP) trigger for Judge."""
@@ -17,6 +20,7 @@ def test_judge_story_a_gxp(client: SimulatedLLMClient) -> None:
     assert critique.severity == LawSeverity.HIGH
     assert "hunch" in critique.reasoning
 
+
 def test_judge_story_c_citation(client: SimulatedLLMClient) -> None:
     """Test Story C (Citation) trigger for Judge."""
     messages = [{"role": "user", "content": "As seen in Study NCT99999, results are promising."}]
@@ -27,6 +31,7 @@ def test_judge_story_c_citation(client: SimulatedLLMClient) -> None:
     assert critique.severity == LawSeverity.MEDIUM
     assert "NCT99999" in critique.reasoning
 
+
 def test_judge_happy_path(client: SimulatedLLMClient) -> None:
     """Test safe default for Judge."""
     messages = [{"role": "user", "content": "The sky is blue."}]
@@ -35,14 +40,17 @@ def test_judge_happy_path(client: SimulatedLLMClient) -> None:
     assert critique.violation is False
     assert critique.article_id is None
 
+
 def test_judge_invalid_model(client: SimulatedLLMClient) -> None:
     """Test error raised when non-Critique model is requested."""
+
     class OtherModel(BaseModel):
         field: str
 
     messages = [{"role": "user", "content": "test"}]
     with pytest.raises(NotImplementedError):
         client.structured_output(messages, OtherModel, model="test")
+
 
 def test_revisor_story_a_gxp(client: SimulatedLLMClient) -> None:
     """Test Story A (GxP) trigger for Revisor."""
@@ -51,12 +59,14 @@ def test_revisor_story_a_gxp(client: SimulatedLLMClient) -> None:
 
     assert "dosage change is not supported without further trial evidence" in revision
 
+
 def test_revisor_story_c_citation(client: SimulatedLLMClient) -> None:
     """Test Story C (Citation) trigger for Revisor."""
     messages = [{"role": "user", "content": "--- ORIGINAL DRAFT ---\nStudy NCT99999...\n\n--- CRITIQUE ---\n..."}]
     revision = client.chat_completion(messages, model="test")
 
     assert "citation needed" in revision
+
 
 def test_revisor_fallback_extraction(client: SimulatedLLMClient) -> None:
     """Test fallback mechanism extracts original draft if no trigger found."""
@@ -65,6 +75,7 @@ def test_revisor_fallback_extraction(client: SimulatedLLMClient) -> None:
     revision = client.chat_completion(messages, model="test")
 
     assert revision == draft_text
+
 
 def test_revisor_fallback_extraction_failure(client: SimulatedLLMClient) -> None:
     """Test fallback returns generic message if extraction fails or format is weird."""
@@ -75,7 +86,9 @@ def test_revisor_fallback_extraction_failure(client: SimulatedLLMClient) -> None
     # It should fall through to the generic message because '--- CRITIQUE ---' is missing
     assert revision == "Simulated Revision: Content revised for compliance."
 
+
 # --- Edge Cases & Complex Scenarios ---
+
 
 def test_trigger_case_insensitivity(client: SimulatedLLMClient) -> None:
     """Test that 'HUNCH' triggers Story A just like 'hunch'."""
@@ -84,6 +97,7 @@ def test_trigger_case_insensitivity(client: SimulatedLLMClient) -> None:
 
     assert critique.violation is True
     assert critique.article_id == "GCP.4"
+
 
 def test_trigger_precedence(client: SimulatedLLMClient) -> None:
     """
@@ -96,6 +110,7 @@ def test_trigger_precedence(client: SimulatedLLMClient) -> None:
     # Should trigger the first one checked (GCP.4 / Hunch)
     assert critique.violation is True
     assert critique.article_id == "GCP.4"
+
 
 def test_extraction_markers_swapped(client: SimulatedLLMClient) -> None:
     """Test fallback when CRITIQUE marker appears before ORIGINAL DRAFT marker."""
@@ -113,6 +128,7 @@ def test_extraction_markers_swapped(client: SimulatedLLMClient) -> None:
     # Empty string is returned.
     assert revision == ""
 
+
 def test_missing_user_role(client: SimulatedLLMClient) -> None:
     """Test behavior when no user message is present."""
     messages = [{"role": "system", "content": "System prompt only"}]
@@ -120,6 +136,7 @@ def test_missing_user_role(client: SimulatedLLMClient) -> None:
 
     # Should extract empty string -> No trigger -> Happy Path
     assert critique.violation is False
+
 
 def test_complex_full_compliance_cycle(client: SimulatedLLMClient) -> None:
     """
@@ -138,10 +155,7 @@ def test_complex_full_compliance_cycle(client: SimulatedLLMClient) -> None:
 
     # 2. Revision
     # Construct prompt like RevisionEngine does
-    revision_prompt = (
-        f"--- ORIGINAL DRAFT ---\n{draft}\n\n"
-        f"--- CRITIQUE ---\n{critique_1.model_dump_json()}"
-    )
+    revision_prompt = f"--- ORIGINAL DRAFT ---\n{draft}\n\n--- CRITIQUE ---\n{critique_1.model_dump_json()}"
     messages_2 = [{"role": "user", "content": revision_prompt}]
 
     revised_text = client.chat_completion(messages_2, model="test")
