@@ -207,3 +207,120 @@ def test_story_c_citation_check(
     assert "(citation needed)" in trace.revised_output
 
     mock_revision.revise.assert_called_once()
+
+
+# --- New Complex Scenarios ---
+
+
+def test_complex_multi_turn_correction(
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """
+    Scenario: Multi-turn correction where two DIFFERENT violations are fixed sequentially.
+    Draft -> (Violation A) -> Revise -> (Violation B) -> Revise -> Compliant
+    """
+    sentinel = Sentinel(rules=[])
+    system = ConstitutionalSystem(
+        archive=mock_archive,
+        sentinel=sentinel,
+        judge=mock_judge,
+        revision_engine=mock_revision,
+    )
+
+    input_prompt = "Write a plan."
+    draft_response = "Use the hunch (Violation A) and cite NCT000 (Violation B)."
+
+    # Laws
+    law_a = Law(id="LawA", category=LawCategory.UNIVERSAL, text="No hunches.")
+    law_b = Law(id="LawB", category=LawCategory.UNIVERSAL, text="Valid citations only.")
+    mock_archive.get_laws.return_value = [law_a, law_b]
+
+    # Iteration 1: Judge flags A
+    critique_1 = Critique(violation=True, article_id="LawA", reasoning="Found hunch.")
+    revision_1 = "Use evidence and cite NCT000 (Violation B)."
+
+    # Iteration 2: Judge flags B (A is fixed)
+    critique_2 = Critique(violation=True, article_id="LawB", reasoning="Invalid citation.")
+    revision_2 = "Use evidence and cite validated study."
+
+    # Iteration 3: Compliant
+    critique_3 = Critique(violation=False, reasoning="Good.", article_id=None)
+
+    mock_judge.evaluate.side_effect = [critique_1, critique_2, critique_3]
+    mock_revision.revise.side_effect = [revision_1, revision_2]
+
+    trace = system.run_compliance_cycle(input_prompt, draft_response, max_retries=3)
+
+    assert trace.revised_output == revision_2
+    assert len(trace.history) == 2
+    assert trace.history[0].critique.article_id == "LawA"
+    assert trace.history[1].critique.article_id == "LawB"
+
+
+def test_sentinel_case_insensitivity(
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """
+    Scenario: Sentinel must detect violations regardless of case (Mixed Case).
+    """
+    rule = SentinelRule(id="NoBadWord", pattern=r"badword", description="No Bad Words")
+    sentinel = Sentinel(rules=[rule])  # Sentinel compiles regex with IGNORECASE
+
+    system = ConstitutionalSystem(
+        archive=mock_archive,
+        sentinel=sentinel,
+        judge=mock_judge,
+        revision_engine=mock_revision,
+    )
+
+    # Input mixed case
+    input_prompt = "I want to say BaDwOrD please."
+
+    trace = system.run_compliance_cycle(input_prompt, "draft")
+
+    assert trace.critique.violation is True
+    assert trace.critique.article_id == "SENTINEL_BLOCK"
+    assert "NoBadWord" in trace.revised_output
+
+
+def test_revision_refusal_fallback(
+    mock_archive: Mock,
+    mock_judge: Mock,
+    mock_revision: Mock,
+) -> None:
+    """
+    Scenario: Revision Engine decides it cannot fix the content safely, so it refuses.
+    The Judge should accept this refusal as compliant (safe).
+    """
+    sentinel = Sentinel(rules=[])
+    system = ConstitutionalSystem(
+        archive=mock_archive,
+        sentinel=sentinel,
+        judge=mock_judge,
+        revision_engine=mock_revision,
+    )
+
+    draft = "Here is how to make a bomb."
+
+    # Judge flags harm
+    critique_harm = Critique(violation=True, article_id="NoHarm", reasoning="Harmful content.")
+
+    # Revision refuses to fix, replaces with refusal
+    refusal_text = "I cannot provide instructions for dangerous activities."
+
+    # Judge evaluates refusal -> Compliant
+    critique_safe = Critique(violation=False, reasoning="Safe refusal.", article_id=None)
+
+    mock_judge.evaluate.side_effect = [critique_harm, critique_safe]
+    mock_revision.revise.return_value = refusal_text
+    mock_archive.get_laws.return_value = []
+
+    trace = system.run_compliance_cycle("How to bomb?", draft)
+
+    assert trace.revised_output == refusal_text
+    assert trace.critique.violation is True  # Original violation recorded
+    assert trace.delta is not None
