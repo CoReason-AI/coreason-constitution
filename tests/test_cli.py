@@ -73,11 +73,7 @@ def test_cli_file_inputs(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     prompt_file.write_text("What dosage?", encoding="utf-8")
     draft_file.write_text("I have a hunch.", encoding="utf-8")
 
-    test_args = [
-        "main.py",
-        "--prompt-file", str(prompt_file),
-        "--draft-file", str(draft_file)
-    ]
+    test_args = ["main.py", "--prompt-file", str(prompt_file), "--draft-file", str(draft_file)]
 
     with patch.object(sys, "argv", test_args):
         main()
@@ -99,6 +95,7 @@ def test_cli_missing_file(capsys: CaptureFixture[str], tmp_path: Path) -> None:
             main()
         assert excinfo.value.code == 1
 
+
 def test_cli_sentinel_blocked_full_cycle(capsys: CaptureFixture[str]) -> None:
     """Test CLI full cycle but blocked by Sentinel (never reaches draft check)."""
     test_args = ["main.py", "--prompt", "delete database", "--draft", "Irrelevant"]
@@ -115,6 +112,7 @@ def test_cli_sentinel_blocked_full_cycle(capsys: CaptureFixture[str]) -> None:
 
 # --- Coverage Tests ---
 
+
 def test_cli_init_exception(capsys: CaptureFixture[str]) -> None:
     """Test CLI behavior when system initialization fails."""
     test_args = ["main.py", "--prompt", "Hello"]
@@ -124,6 +122,7 @@ def test_cli_init_exception(capsys: CaptureFixture[str]) -> None:
             with pytest.raises(SystemExit) as excinfo:
                 main()
             assert excinfo.value.code == 1
+
 
 def test_cli_compliance_cycle_exception(capsys: CaptureFixture[str]) -> None:
     """Test CLI behavior when run_compliance_cycle fails generically."""
@@ -137,6 +136,7 @@ def test_cli_compliance_cycle_exception(capsys: CaptureFixture[str]) -> None:
                 main()
             assert excinfo.value.code == 1
 
+
 def test_cli_sentinel_generic_exception(capsys: CaptureFixture[str]) -> None:
     """Test CLI behavior when Sentinel checks fail generically (not SecurityException)."""
     test_args = ["main.py", "--prompt", "Hello"]
@@ -149,7 +149,9 @@ def test_cli_sentinel_generic_exception(capsys: CaptureFixture[str]) -> None:
                 main()
             assert excinfo.value.code == 1
 
+
 # --- Edge Case & Complex Tests ---
+
 
 def test_cli_explicit_empty_draft(capsys: CaptureFixture[str]) -> None:
     """
@@ -162,12 +164,9 @@ def test_cli_explicit_empty_draft(capsys: CaptureFixture[str]) -> None:
             main()
         assert excinfo.value.code == 1
 
-    captured = capsys.readouterr()
     # Loguru logs to stderr usually, but capsys captures it if configured?
-    # Actually logger usually goes to stderr.
-    # Note: Loguru configuration might affect capture, but default capsys usually catches stderr.
-    # If logger is configured to use sys.stderr, it should be captured.
     # We won't assert the log message strictly if capture is tricky, but we assert exit code.
+
 
 def test_cli_large_input(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     """
@@ -184,6 +183,7 @@ def test_cli_large_input(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     captured = capsys.readouterr()
     output = json.loads(captured.out)
     assert output["status"] == "APPROVED"
+
 
 def test_cli_unicode_input(capsys: CaptureFixture[str]) -> None:
     """
@@ -206,6 +206,7 @@ def test_cli_unicode_input(capsys: CaptureFixture[str]) -> None:
     # We just check content match.
     assert "📝" in output["input_draft"]
 
+
 def test_cli_complex_triggers(capsys: CaptureFixture[str]) -> None:
     """
     Test input containing multiple triggers (Story A and Story C).
@@ -227,6 +228,6 @@ def test_cli_complex_triggers(capsys: CaptureFixture[str]) -> None:
     # We verify WHICH violation was caught.
     # Based on SimulatedLLMClient implementation, "hunch" is checked first.
     if "hunch" in output["critique"]["reasoning"]:
-         assert output["critique"]["article_id"] == "GCP.4"
+        assert output["critique"]["article_id"] == "GCP.4"
     else:
-         assert output["critique"]["article_id"] == "REF.1"
+        assert output["critique"]["article_id"] == "REF.1"
