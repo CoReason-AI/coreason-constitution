@@ -1,3 +1,13 @@
+# Copyright (c) 2025 CoReason, Inc.
+#
+# This software is proprietary and dual-licensed.
+# Licensed under the Prosperity Public License 3.0 (the "License").
+# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
+# For details, see the LICENSE file.
+# Commercial use beyond a 30-day trial requires a separate license.
+#
+# Source Code: https://github.com/CoReason-AI/coreason_constitution
+
 import json
 import sys
 from pathlib import Path
@@ -37,27 +47,18 @@ def test_cli_permission_error(capsys: CaptureFixture[str], tmp_path: Path) -> No
     Edge Case: User provides a file that exists but is not readable.
     Expectation: CLI should log error and exit with status code 1.
     """
-    # Create a file and remove read permissions
+    # Create a file
     secret_file = tmp_path / "secret.txt"
     secret_file.write_text("content", encoding="utf-8")
-
-    # Attempt to remove permissions
-    import os
-
-    try:
-        os.chmod(secret_file, 0o000)
-    except Exception:
-        pytest.skip("Cannot change file permissions in this environment")
 
     test_args = ["main.py", "--prompt-file", str(secret_file)]
 
     with patch.object(sys, "argv", test_args):
-        with pytest.raises(SystemExit) as excinfo:
-            main()
-        assert excinfo.value.code == 1
-
-    # Restore permissions
-    os.chmod(secret_file, 0o666)
+        # Mock Path.read_text to raise PermissionError regardless of OS
+        with patch("pathlib.Path.read_text", side_effect=PermissionError("Mocked Permission Denied")):
+            with pytest.raises(SystemExit) as excinfo:
+                main()
+            assert excinfo.value.code == 1
 
 
 def test_cli_output_purity_with_logs(capsys: CaptureFixture[str], capture_logs: List[str]) -> None:
@@ -119,3 +120,35 @@ def test_cli_no_args(capsys: CaptureFixture[str]) -> None:
         with pytest.raises(SystemExit) as excinfo:
             main()
         assert excinfo.value.code == 2
+
+
+def test_cli_directory_as_file(capsys: CaptureFixture[str], tmp_path: Path) -> None:
+    """
+    Edge Case: User provides a directory path instead of a file.
+    Expectation: CLI logs error and exits 1.
+    """
+    test_dir = tmp_path / "subdir"
+    test_dir.mkdir()
+
+    test_args = ["main.py", "--prompt-file", str(test_dir)]
+
+    with patch.object(sys, "argv", test_args):
+        with pytest.raises(SystemExit) as excinfo:
+            main()
+        assert excinfo.value.code == 1
+
+
+def test_cli_empty_prompt_file(capsys: CaptureFixture[str], tmp_path: Path) -> None:
+    """
+    Edge Case: Prompt file is valid but empty.
+    Expectation: CLI logs error (Input prompt is required) and exits 1.
+    """
+    empty_file = tmp_path / "empty.txt"
+    empty_file.write_text("", encoding="utf-8")
+
+    test_args = ["main.py", "--prompt-file", str(empty_file)]
+
+    with patch.object(sys, "argv", test_args):
+        with pytest.raises(SystemExit) as excinfo:
+            main()
+        assert excinfo.value.code == 1
