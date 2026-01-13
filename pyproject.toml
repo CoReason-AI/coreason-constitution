@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "coreason_constitution"
 version = "0.1.0"
-description = "the judge"
+description = "Constitutional Governance & Active Alignment"
 authors = ["Gowtham A Rao <gowtham.rao@coreason.ai>"]
 license = "Prosperity-3.0"
 readme = "README.md"
@@ -9,6 +9,9 @@ packages = [
     {include = "coreason_constitution", from = "src"},
     {include = "coreason_economist", from = "src"}
 ]
+
+[tool.poetry.scripts]
+constitution = "coreason_constitution.main:main"
 
 [tool.poetry.dependencies]
 python = ">=3.12, <3.15"
@@ -31,7 +34,7 @@ build-backend = "poetry.core.masonry.api"
 [project]
 name = "coreason_constitution"
 version = "0.1.0"
-description = "the judge"
+description = "Constitutional Governance & Active Alignment"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
