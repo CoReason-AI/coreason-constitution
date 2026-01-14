@@ -21,7 +21,7 @@ from coreason_constitution.main import main
 from coreason_constitution.utils.logger import logger
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore
 def capture_logs() -> Generator[List[str], None, None]:
     """Fixture to capture loguru logs into a list."""
     logs: List[str] = []

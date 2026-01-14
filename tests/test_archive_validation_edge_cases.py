@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from coreason_constitution.archive import LegislativeArchive
-from coreason_constitution.schema import LawCategory, LawSeverity
+from coreason_constitution.schema import LawCategory
 
 
 def test_poison_pill_list() -> None:

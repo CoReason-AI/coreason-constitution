@@ -17,12 +17,12 @@ from coreason_constitution.schema import Critique, Law, LawCategory, LawSeverity
 from tests.mocks import MockLLMClient
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore
 def mock_client() -> MockLLMClient:
     return MockLLMClient()
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore
 def basic_laws() -> List[Law]:
     return [
         Law(id="U.1", category=LawCategory.UNIVERSAL, text="Do not generate hate speech."),

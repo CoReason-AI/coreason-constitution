@@ -15,7 +15,7 @@ from coreason_constitution.schema import Critique, LawSeverity
 from coreason_constitution.simulation import SimulatedLLMClient
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore
 def client() -> SimulatedLLMClient:
     return SimulatedLLMClient()
 

@@ -22,7 +22,7 @@ from coreason_constitution.sentinel import Sentinel
 from coreason_constitution.simulation import SimulatedLLMClient
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore
 def sentinel_with_rule() -> Sentinel:
     rule = SentinelRule(id="SEC.TEST", pattern=r"delete.*database", description="Destructive Intent")
     return Sentinel(rules=[rule])

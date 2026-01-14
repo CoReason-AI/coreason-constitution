@@ -16,7 +16,7 @@ from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.schema import Law
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore
 def real_archive() -> LegislativeArchive:
     """
     Fixture that loads the ACTUAL default laws from the filesystem.
