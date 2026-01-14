@@ -22,6 +22,7 @@ from coreason_constitution.schema import (
     LawCategory,
     LawSeverity,
     SentinelRule,
+    TraceStatus,
 )
 from coreason_constitution.sentinel import Sentinel
 
@@ -99,6 +100,7 @@ def test_story_a_active_correction(
     trace = system.run_compliance_cycle(input_prompt, draft_response)
 
     # 5. Verify
+    assert trace.status == TraceStatus.REVISED
     assert trace.critique.violation is True
     assert trace.critique.article_id == "Article 4"
     assert trace.revised_output == revised_text
@@ -142,6 +144,7 @@ def test_story_b_hard_block(
 
     # 4. Verify
     # Should be a refusal
+    assert trace.status == TraceStatus.BLOCKED
     assert "Security Protocol 1.A" in trace.revised_output
     assert "Request denied" in trace.revised_output
 
@@ -210,6 +213,7 @@ def test_story_c_citation_check(
     trace = system.run_compliance_cycle(input_prompt, draft_response)
 
     # 5. Verify
+    assert trace.status == TraceStatus.REVISED
     assert trace.critique.violation is True
     assert trace.critique.article_id == "Valid References"
     assert "NCT99999" in trace.input_draft
@@ -263,6 +267,7 @@ def test_complex_multi_turn_correction(
 
     trace = system.run_compliance_cycle(input_prompt, draft_response, max_retries=3)
 
+    assert trace.status == TraceStatus.REVISED
     assert trace.revised_output == revision_2
     assert len(trace.history) == 2
     assert trace.history[0].critique.article_id == "LawA"
@@ -292,6 +297,7 @@ def test_sentinel_case_insensitivity(
 
     trace = system.run_compliance_cycle(input_prompt, "draft")
 
+    assert trace.status == TraceStatus.BLOCKED
     assert trace.critique.violation is True
     assert trace.critique.article_id == "SENTINEL_BLOCK"
     assert "NoBadWord" in trace.revised_output
@@ -331,6 +337,7 @@ def test_revision_refusal_fallback(
 
     trace = system.run_compliance_cycle("How to bomb?", draft)
 
+    assert trace.status == TraceStatus.REVISED
     assert trace.revised_output == refusal_text
     assert trace.critique.violation is True  # Original violation recorded
     assert trace.delta is not None

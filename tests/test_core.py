@@ -22,6 +22,7 @@ from coreason_constitution.schema import (
     Law,
     LawCategory,
     LawSeverity,
+    TraceStatus,
 )
 from coreason_constitution.sentinel import Sentinel
 
@@ -85,6 +86,7 @@ def test_sentinel_block(system: ConstitutionalSystem, mock_sentinel: Mock) -> No
     # Verify
     mock_sentinel.check.assert_called_once_with(input_prompt)
 
+    assert trace.status == TraceStatus.BLOCKED
     assert trace.critique.violation is True
     assert trace.critique.article_id == "SENTINEL_BLOCK"
     assert trace.critique.severity == LawSeverity.CRITICAL
@@ -118,6 +120,7 @@ def test_compliance_cycle_compliant(
     mock_judge.evaluate.assert_called_once_with(draft_response, laws)
     mock_revision.revise.assert_not_called()
 
+    assert trace.status == TraceStatus.APPROVED
     assert trace.critique.violation is False
     assert trace.revised_output == draft_response
     assert trace.delta is None
@@ -155,6 +158,7 @@ def test_compliance_cycle_violation(
     assert mock_judge.evaluate.call_count == 2
     mock_revision.revise.assert_called_once_with(draft_response, critique_1, laws)
 
+    assert trace.status == TraceStatus.REVISED
     assert trace.critique.violation is True
     assert trace.revised_output == revised_response
     # Check that delta is generated and contains diff
@@ -189,6 +193,7 @@ def test_compliance_cycle_revision_failure(
     trace = system.run_compliance_cycle(input_prompt, draft_response)
 
     # System should catch exception and return a safe error message
+    assert trace.status == TraceStatus.BLOCKED
     assert trace.critique.violation is True
     assert "Safety Protocol Exception" in trace.revised_output
     assert trace.delta is None  # Hard refusal = no diff
@@ -202,6 +207,7 @@ def test_edge_case_empty_security_exception(system: ConstitutionalSystem, mock_s
 
     trace = system.run_compliance_cycle("Bad input", "Draft")
 
+    assert trace.status == TraceStatus.BLOCKED
     assert trace.critique.violation is True
     assert len(trace.critique.reasoning) > 0
     assert trace.critique.reasoning != ""
@@ -221,6 +227,7 @@ def test_edge_case_unicode_inputs(
 
     trace = system.run_compliance_cycle(input_prompt, draft_response)
 
+    assert trace.status == TraceStatus.APPROVED
     assert trace.input_draft == draft_response
     assert trace.revised_output == draft_response
 
@@ -280,6 +287,7 @@ def test_compliance_cycle_max_retries_exceeded(
 
     trace = system.run_compliance_cycle(input_prompt, draft_response, max_retries=3)
 
+    assert trace.status == TraceStatus.BLOCKED
     assert trace.critique.violation is True
     assert "Safety Protocol Exception" in trace.revised_output
     assert trace.delta is None
