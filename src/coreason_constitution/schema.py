@@ -9,7 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/coreason_constitution
 
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -46,6 +46,11 @@ class Constitution(BaseModel):
     version: str = Field(..., description="Version of this constitution set")
     laws: List[Law] = Field(default_factory=list, description="List of laws")
     sentinel_rules: List[SentinelRule] = Field(default_factory=list, description="List of Sentinel red line rules")
+
+
+# Union type for loading artifacts
+LawOrRule = Union[Law, SentinelRule]
+Artifact = Union[Constitution, List[LawOrRule], LawOrRule]
 
 
 class Critique(BaseModel):
