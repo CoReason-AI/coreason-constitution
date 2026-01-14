@@ -16,7 +16,7 @@ from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.schema import Law, LawCategory
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture  # type: ignore
 def sample_laws() -> List[Law]:
     return [
         Law(
@@ -70,7 +70,7 @@ def sample_laws() -> List[Law]:
     ]
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture  # type: ignore
 def archive_with_laws(sample_laws: List[Law]) -> LegislativeArchive:
     archive = LegislativeArchive()
     # Manually inject laws to avoid filesystem dependency for this unit test

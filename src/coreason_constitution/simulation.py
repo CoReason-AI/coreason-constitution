@@ -15,6 +15,18 @@ from coreason_constitution.schema import Critique, LawSeverity
 
 T = TypeVar("T")
 
+# Triggers for User Stories
+TRIGGER_HUNCH = "hunch"
+TRIGGER_NCT = "NCT99999"
+
+# Law IDs for User Stories
+LAW_ID_GCP4 = "GCP.4"
+LAW_ID_REF1 = "REF.1"
+
+# Prompt Markers
+MARKER_ORIGINAL_DRAFT = "--- ORIGINAL DRAFT ---"
+MARKER_CRITIQUE = "--- CRITIQUE ---"
+
 
 class SimulatedLLMClient(LLMClient):
     """
@@ -38,23 +50,22 @@ class SimulatedLLMClient(LLMClient):
 
         # Story A: GxP Compliance (Correction)
         # Trigger: "hunch"
-        if "hunch" in user_content.lower():
+        if TRIGGER_HUNCH in user_content.lower():
             return "Based on current data, a dosage change is not supported without further trial evidence."
 
         # Story C: Citation Check (Hallucination Defense)
         # Trigger: "NCT99999"
-        if "NCT99999" in user_content:
+        if TRIGGER_NCT in user_content:
             return "The summary cites a relevant study (citation needed)."
 
         # Fallback: If we are here, it means we are asked to revise something
         # that we don't have a canned fix for.
         # Ideally, we should try to extract the original draft from the prompt.
-        # The prompt format in RevisionEngine is: "--- ORIGINAL DRAFT ---\n{draft}\n\n..."
-        if "--- ORIGINAL DRAFT ---" in user_content:
+        if MARKER_ORIGINAL_DRAFT in user_content:
             try:
                 # Extract text between header and next section
-                start = user_content.find("--- ORIGINAL DRAFT ---") + len("--- ORIGINAL DRAFT ---")
-                end = user_content.find("--- CRITIQUE ---")
+                start = user_content.find(MARKER_ORIGINAL_DRAFT) + len(MARKER_ORIGINAL_DRAFT)
+                end = user_content.find(MARKER_CRITIQUE)
                 if start != -1 and end != -1:
                     return user_content[start:end].strip()
             except Exception:  # pragma: no cover
@@ -81,10 +92,10 @@ class SimulatedLLMClient(LLMClient):
 
         # Story A: GxP Compliance
         # Trigger: "hunch"
-        if "hunch" in user_content.lower():
+        if TRIGGER_HUNCH in user_content.lower():
             return Critique(
                 violation=True,
-                article_id="GCP.4",
+                article_id=LAW_ID_GCP4,
                 severity=LawSeverity.HIGH,
                 reasoning=(
                     "The draft recommends a dosage change based on a 'hunch', "
@@ -94,10 +105,10 @@ class SimulatedLLMClient(LLMClient):
 
         # Story C: Citation Check
         # Trigger: "NCT99999"
-        if "NCT99999" in user_content:
+        if TRIGGER_NCT in user_content:
             return Critique(
                 violation=True,
-                article_id="REF.1",
+                article_id=LAW_ID_REF1,
                 severity=LawSeverity.MEDIUM,
                 reasoning="The draft cites 'Study NCT99999' which is not found in the valid references list.",
             )  # type: ignore
