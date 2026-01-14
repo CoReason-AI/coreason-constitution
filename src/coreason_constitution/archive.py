@@ -12,7 +12,9 @@ import json
 from pathlib import Path
 from typing import List, Optional, Set
 
-from coreason_constitution.schema import Constitution, Law, LawCategory, SentinelRule
+from pydantic import TypeAdapter, ValidationError
+
+from coreason_constitution.schema import Artifact, Constitution, Law, LawCategory, SentinelRule
 from coreason_constitution.utils.logger import logger
 
 
@@ -50,43 +52,43 @@ class LegislativeArchive:
         loaded_sentinel_rules: List[SentinelRule] = []
         loaded_rule_ids: Set[str] = set()
 
+        adapter: TypeAdapter[Artifact] = TypeAdapter(Artifact)
+
         # Use rglob for recursive search
         for file_path in path.rglob("*.json"):
             try:
-                content = json.loads(file_path.read_text(encoding="utf-8"))
+                # Read file content
+                content_text = file_path.read_text(encoding="utf-8")
+                content = json.loads(content_text)
+
+                # Use Pydantic TypeAdapter to parse the content
+                try:
+                    parsed_obj = adapter.validate_python(content)
+                except ValidationError as ve:
+                    # Try to give a more helpful error if possible, or just raise
+                    # This handles the case where it doesn't match any of the Union types
+                    raise ValueError(f"Validation failed for {file_path}: {ve}") from ve
+
                 new_laws: List[Law] = []
                 new_rules: List[SentinelRule] = []
 
-                # Handle if the file is a full Constitution object
-                # Check for 'version' + ('laws' OR 'sentinel_rules')
-                is_constitution = (
-                    isinstance(content, dict)
-                    and "version" in content
-                    and ("laws" in content or "sentinel_rules" in content)
-                )
-                if is_constitution:
-                    const = Constitution(**content)
-                    new_laws.extend(const.laws)
-                    new_rules.extend(const.sentinel_rules)
-                    # Simple version handling: take the last one or keep default if multiple
-                    self._version = const.version
+                if isinstance(parsed_obj, Constitution):
+                    new_laws.extend(parsed_obj.laws)
+                    new_rules.extend(parsed_obj.sentinel_rules)
+                    self._version = parsed_obj.version
 
-                # Handle if the file is just a list of laws
-                elif isinstance(content, list):
-                    for item in content:
-                        # Attempt to parse as Law or SentinelRule based on fields
-                        # This is a bit heuristic. Law requires 'category', SentinelRule requires 'pattern'.
-                        if "pattern" in item:
-                            new_rules.append(SentinelRule(**item))
-                        else:
-                            new_laws.append(Law(**item))
+                elif isinstance(parsed_obj, list):
+                    for item in parsed_obj:
+                        if isinstance(item, SentinelRule):
+                            new_rules.append(item)
+                        elif isinstance(item, Law):
+                            new_laws.append(item)
 
-                # Handle single object
-                elif isinstance(content, dict):
-                    if "pattern" in content:
-                        new_rules.append(SentinelRule(**content))
-                    else:
-                        new_laws.append(Law(**content))
+                elif isinstance(parsed_obj, SentinelRule):
+                    new_rules.append(parsed_obj)
+
+                elif isinstance(parsed_obj, Law):
+                    new_laws.append(parsed_obj)
 
                 # Check for duplicates before adding laws
                 for law in new_laws:
@@ -109,6 +111,8 @@ class LegislativeArchive:
                 logger.info(f"Loaded content from {file_path}")
 
             except Exception as e:
+                # Catch-all for JSONDecodeError or other file read issues, and re-raise as ValueError
+                # to maintain the existing API contract
                 logger.error(f"Failed to load {file_path}: {e}")
                 raise ValueError(f"Failed to parse {file_path}: {e}") from e
 

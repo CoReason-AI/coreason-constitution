@@ -23,27 +23,27 @@ from coreason_constitution.schema import (
 from coreason_constitution.sentinel import Sentinel
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def mock_archive() -> Mock:
     return create_autospec(LegislativeArchive, instance=True)  # type: ignore
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def mock_sentinel() -> Mock:
     return create_autospec(Sentinel, instance=True)  # type: ignore
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def mock_judge() -> Mock:
     return create_autospec(ConstitutionalJudge, instance=True)  # type: ignore
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def mock_revision() -> Mock:
     return create_autospec(RevisionEngine, instance=True)  # type: ignore
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def system(
     mock_archive: Mock,
     mock_sentinel: Mock,

@@ -45,17 +45,17 @@ class MockLLMClient(LLMClient):
         pass  # Not used in RevisionEngine
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def mock_client() -> MockLLMClient:
     return MockLLMClient()
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def revision_engine(mock_client: MockLLMClient) -> RevisionEngine:
     return RevisionEngine(llm_client=mock_client)
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def sample_law() -> Law:
     return Law(
         id="GCP.1", category=LawCategory.DOMAIN, text="Do not hallucinate clinical data.", severity=LawSeverity.HIGH

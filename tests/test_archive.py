@@ -18,7 +18,7 @@ from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.schema import Constitution, Law, LawCategory, LawSeverity
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def law_dict() -> Dict[str, Any]:
     return {
         "id": "UNIV.1",

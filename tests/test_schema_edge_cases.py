@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from coreason_constitution.schema import ConstitutionalTrace, Critique, LawSeverity
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def base_critique() -> Critique:
     return Critique(
         violation=True,

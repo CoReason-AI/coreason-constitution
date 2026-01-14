@@ -15,7 +15,7 @@ from coreason_constitution.schema import Critique, Law, LawCategory, LawSeverity
 from tests.mocks import MockLLMClient
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def mock_client() -> MockLLMClient:
     return MockLLMClient()
 
