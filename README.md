@@ -17,6 +17,16 @@ Governance rules should not be vague instructions hidden in a system prompt. The
 
 ## Installation
 
+### From PyPI (Recommended for Consumption)
+
+You can install the package directly from PyPI using pip:
+
+```bash
+pip install coreason-constitution
+```
+
+### For Development
+
 This project is managed with [Poetry](https://python-poetry.org/).
 
 1.  **Clone the repository:**
