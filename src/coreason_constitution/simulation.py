@@ -50,6 +50,10 @@ class SimulatedLLMClient(LLMClient):
 
         # Story A: GxP Compliance (Correction)
         # Trigger: "hunch"
+        # Note: Revision logic runs AFTER Judge has flagged it, so we assume
+        # context was checked by Judge. However, strictly speaking, Revision
+        # also receives laws. But for simulation simplicity, we assume if we are
+        # asked to revise "hunch", we do it.
         if TRIGGER_HUNCH in user_content.lower():
             return "Based on current data, a dosage change is not supported without further trial evidence."
 
@@ -92,26 +96,32 @@ class SimulatedLLMClient(LLMClient):
 
         # Story A: GxP Compliance
         # Trigger: "hunch"
+        # Condition: Law GCP.4 must be in the prompt
         if TRIGGER_HUNCH in user_content.lower():
-            return Critique(
-                violation=True,
-                article_id=LAW_ID_GCP4,
-                severity=LawSeverity.HIGH,
-                reasoning=(
-                    "The draft recommends a dosage change based on a 'hunch', "
-                    "which violates the requirement for evidence-based claims."
-                ),
-            )  # type: ignore
+            # Check if GCP.4 is in the laws text provided in the prompt
+            # The prompt format in Judge.evaluate is: "Law ID: {law.id}"
+            if f"Law ID: {LAW_ID_GCP4}" in user_content:
+                return Critique(
+                    violation=True,
+                    article_id=LAW_ID_GCP4,
+                    severity=LawSeverity.HIGH,
+                    reasoning=(
+                        "The draft recommends a dosage change based on a 'hunch', "
+                        "which violates the requirement for evidence-based claims."
+                    ),
+                )  # type: ignore
 
         # Story C: Citation Check
         # Trigger: "NCT99999"
+        # Condition: Law REF.1 must be in the prompt
         if TRIGGER_NCT in user_content:
-            return Critique(
-                violation=True,
-                article_id=LAW_ID_REF1,
-                severity=LawSeverity.MEDIUM,
-                reasoning="The draft cites 'Study NCT99999' which is not found in the valid references list.",
-            )  # type: ignore
+            if f"Law ID: {LAW_ID_REF1}" in user_content:
+                return Critique(
+                    violation=True,
+                    article_id=LAW_ID_REF1,
+                    severity=LawSeverity.MEDIUM,
+                    reasoning="The draft cites 'Study NCT99999' which is not found in the valid references list.",
+                )  # type: ignore
 
         # Fallback: Safe Default (No Violation)
         return Critique(
