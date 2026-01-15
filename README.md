@@ -58,6 +58,23 @@ You can also provide input via files to avoid escaping issues:
 poetry run constitution --prompt-file inputs/prompt.txt --draft-file inputs/draft.txt
 ```
 
+**Advanced Usage (Dynamic Context):**
+
+You can specify context tags to dynamically load relevant laws (e.g., applying GxP rules only when working in a GxP context):
+
+```bash
+poetry run constitution \
+  --prompt "What dosage?" \
+  --draft "I have a hunch we should double it." \
+  --context GxP Clinical
+```
+
+You can also configure the maximum number of revision attempts:
+
+```bash
+poetry run constitution --prompt "..." --draft "..." --max-retries 5
+```
+
 **Output:**
 
 The CLI outputs a JSON object to `stdout` containing the trace (violation status, critique, revised output). Logs are sent to `stderr`.

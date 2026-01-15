@@ -50,6 +50,21 @@ def main() -> None:
     draft_group.add_argument("--draft", help="The draft response text")
     draft_group.add_argument("--draft-file", help="Path to a file containing the draft response")
 
+    # Context & Configuration Group
+    config_group = parser.add_argument_group("Configuration")
+    config_group.add_argument(
+        "--context",
+        nargs="*",
+        default=None,
+        help="List of context tags to activate specific laws (e.g. 'GxP' 'tenant:acme')",
+    )
+    config_group.add_argument(
+        "--max-retries",
+        type=int,
+        default=3,
+        help="Maximum number of revision attempts (default: 3)",
+    )
+
     args = parser.parse_args()
 
     # Load Inputs
@@ -88,7 +103,12 @@ def main() -> None:
 
         # Full Compliance Cycle
         try:
-            trace = system.run_compliance_cycle(input_prompt, draft_response)
+            trace = system.run_compliance_cycle(
+                input_prompt=input_prompt,
+                draft_response=draft_response,
+                context_tags=args.context,
+                max_retries=args.max_retries,
+            )
             # Output Trace as JSON
             print(trace.model_dump_json(indent=2))
         except Exception as e:
