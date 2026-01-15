@@ -33,7 +33,6 @@ def test_poison_pill_list() -> None:
       },
       {
         "id": "INVALID.1",
-        "text": "Missing category",
         "severity": "Low"
       }
     ]

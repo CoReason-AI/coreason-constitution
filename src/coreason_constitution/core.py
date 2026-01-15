@@ -103,12 +103,13 @@ class ConstitutionalSystem:
                 delta=None,  # No diff for a hard block
             )
 
-        # 2. Fetch Laws
+        # 2. Fetch Laws and References
         active_laws = self.archive.get_laws(context_tags=context_tags)
+        active_references = self.archive.get_references(context_tags=context_tags)
 
         # 3. Initial Judge Evaluation
         current_draft = draft_response
-        initial_critique = self.judge.evaluate(current_draft, active_laws)
+        initial_critique = self.judge.evaluate(current_draft, active_laws, active_references)
 
         if not initial_critique.violation:
             # Happy path: No violations found
@@ -152,7 +153,7 @@ class ConstitutionalSystem:
 
             # B. Evaluate Revision
             # The Revised content becomes the draft for the next check
-            next_critique = self.judge.evaluate(revised_content, active_laws)
+            next_critique = self.judge.evaluate(revised_content, active_laws, active_references)
 
             # C. Record Iteration
             iteration = TraceIteration(

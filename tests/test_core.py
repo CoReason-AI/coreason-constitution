@@ -1,3 +1,5 @@
+from typing import Any
+
 # Copyright (c) 2025 CoReason, Inc.
 #
 # This software is proprietary and dual-licensed.
@@ -7,7 +9,6 @@
 # Commercial use beyond a 30-day trial requires a separate license.
 #
 # Source Code: https://github.com/CoReason-AI/coreason_constitution
-
 from unittest.mock import Mock, create_autospec
 
 import pytest
@@ -28,23 +29,23 @@ from coreason_constitution.sentinel import Sentinel
 
 
 @pytest.fixture  # type: ignore
-def mock_archive() -> Mock:
-    return create_autospec(LegislativeArchive, instance=True)  # type: ignore
+def mock_archive() -> Any:
+    return create_autospec(LegislativeArchive, instance=True)
 
 
 @pytest.fixture  # type: ignore
-def mock_sentinel() -> Mock:
-    return create_autospec(Sentinel, instance=True)  # type: ignore
+def mock_sentinel() -> Any:
+    return create_autospec(Sentinel, instance=True)
 
 
 @pytest.fixture  # type: ignore
-def mock_judge() -> Mock:
-    return create_autospec(ConstitutionalJudge, instance=True)  # type: ignore
+def mock_judge() -> Any:
+    return create_autospec(ConstitutionalJudge, instance=True)
 
 
 @pytest.fixture  # type: ignore
-def mock_revision() -> Mock:
-    return create_autospec(RevisionEngine, instance=True)  # type: ignore
+def mock_revision() -> Any:
+    return create_autospec(RevisionEngine, instance=True)
 
 
 @pytest.fixture  # type: ignore
@@ -110,6 +111,7 @@ def test_compliance_cycle_compliant(
 
     mock_sentinel.check.return_value = None
     mock_archive.get_laws.return_value = laws
+    mock_archive.get_references.return_value = []
     mock_judge.evaluate.return_value = Critique(violation=False, reasoning="Compliant", article_id=None)
 
     trace = system.run_compliance_cycle(input_prompt, draft_response, context_tags=["test"])
@@ -117,7 +119,7 @@ def test_compliance_cycle_compliant(
     # Verify Logic
     mock_sentinel.check.assert_called_once_with(input_prompt)
     mock_archive.get_laws.assert_called_once_with(context_tags=["test"])
-    mock_judge.evaluate.assert_called_once_with(draft_response, laws)
+    mock_judge.evaluate.assert_called_once_with(draft_response, laws, [])
     mock_revision.revise.assert_not_called()
 
     assert trace.status == TraceStatus.APPROVED
@@ -249,6 +251,7 @@ def test_compliance_cycle_complex_context_filtering(
     # Setup: Archive returns a specific subset of laws
     filtered_laws = [Law(id="GCP.1", category=LawCategory.DOMAIN, text="GCP Rule", tags=["region:EU"])]
     mock_archive.get_laws.return_value = filtered_laws
+    mock_archive.get_references.return_value = []
     mock_sentinel.check.return_value = None
     mock_judge.evaluate.return_value = Critique(violation=False, reasoning="OK")
 
@@ -257,7 +260,7 @@ def test_compliance_cycle_complex_context_filtering(
     # Verify correct tags passed to Archive
     mock_archive.get_laws.assert_called_once_with(context_tags=context_tags)
     # Verify the filtered laws (and ONLY them) passed to Judge
-    mock_judge.evaluate.assert_called_once_with(draft_response, filtered_laws)
+    mock_judge.evaluate.assert_called_once_with(draft_response, filtered_laws, [])
 
 
 def test_compliance_cycle_max_retries_exceeded(
