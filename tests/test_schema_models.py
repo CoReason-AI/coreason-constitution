@@ -13,7 +13,12 @@ from typing import Any, Dict
 import pytest
 from pydantic import ValidationError
 
-from coreason_constitution.schema import ConstitutionalTrace, Critique, LawSeverity
+from coreason_constitution.schema import (
+    ConstitutionalTrace,
+    Critique,
+    LawSeverity,
+    TraceStatus,
+)
 
 
 @pytest.fixture  # type: ignore
@@ -58,11 +63,13 @@ def test_critique_missing_required() -> None:
 def test_trace_model() -> None:
     critique = Critique(violation=True, article_id="U1", severity=LawSeverity.CRITICAL, reasoning="Bad.")
     trace = ConstitutionalTrace(
+        status=TraceStatus.REVISED,
         input_draft="Bad draft",
         critique=critique,
         revised_output="Good draft",
         delta="--- +++ diff",
     )
+    assert trace.status == TraceStatus.REVISED
     assert trace.input_draft == "Bad draft"
     assert trace.critique.violation is True
     assert trace.delta == "--- +++ diff"
@@ -71,9 +78,11 @@ def test_trace_model() -> None:
 def test_trace_optional_delta() -> None:
     critique = Critique(violation=False, reasoning="Ok.")
     trace = ConstitutionalTrace(
+        status=TraceStatus.APPROVED,
         input_draft="Good draft",
         critique=critique,
         revised_output="Good draft",
         # delta is optional
     )
+    assert trace.status == TraceStatus.APPROVED
     assert trace.delta is None

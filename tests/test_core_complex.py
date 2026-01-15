@@ -19,6 +19,7 @@ from coreason_constitution.revision import RevisionEngine
 from coreason_constitution.schema import (
     Critique,
     LawSeverity,
+    TraceStatus,
 )
 from coreason_constitution.sentinel import Sentinel
 
@@ -91,6 +92,7 @@ def test_oscillation_failure(
 
     trace = system.run_compliance_cycle(input_prompt, draft_response, max_retries=3)
 
+    assert trace.status == TraceStatus.BLOCKED
     assert trace.critique.violation is True
     assert trace.critique.article_id == "A"  # Should preserve INITIAL violation
     assert "Safety Protocol Exception" in trace.revised_output
@@ -116,6 +118,7 @@ def test_max_retries_zero(
 
     trace = system.run_compliance_cycle(input_prompt, draft_response, max_retries=0)
 
+    assert trace.status == TraceStatus.BLOCKED
     assert trace.critique.violation is True
     assert "Safety Protocol Exception" in trace.revised_output
     assert len(trace.history) == 0
@@ -143,6 +146,7 @@ def test_empty_revision_handling(
 
     trace = system.run_compliance_cycle(input_prompt, draft_response)
 
+    assert trace.status == TraceStatus.BLOCKED
     assert trace.critique.violation is True
     assert "Safety Protocol Exception" in trace.revised_output
     # It fails on the first attempt, so history should be empty or maybe partial?
@@ -179,6 +183,7 @@ def test_trace_history_fidelity(
 
     trace = system.run_compliance_cycle(input_prompt, draft_response, max_retries=5)
 
+    assert trace.status == TraceStatus.REVISED
     assert trace.revised_output == "Draft 2"
     assert len(trace.history) == 2
 
