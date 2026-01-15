@@ -49,17 +49,21 @@ class SimulatedLLMClient(LLMClient):
         user_content = next((m["content"] for m in messages if m["role"] == "user"), "")
 
         # Story A: GxP Compliance (Correction)
-        # Trigger: "hunch"
+        # Trigger: "hunch" AND Violation: GCP.4
         if TRIGGER_HUNCH in user_content.lower():
-            return "Based on current data, a dosage change is not supported without further trial evidence."
+            # Check if we are revising THIS specific violation
+            # The prompt format in RevisionEngine.revise includes: "Violation: {critique.article_id}"
+            if f"Violation: {LAW_ID_GCP4}" in user_content:
+                return "Based on current data, a dosage change is not supported without further trial evidence."
 
         # Story C: Citation Check (Hallucination Defense)
-        # Trigger: "NCT99999"
+        # Trigger: "NCT99999" AND Violation: REF.1
         if TRIGGER_NCT in user_content:
-            return "The summary cites a relevant study (citation needed)."
+            if f"Violation: {LAW_ID_REF1}" in user_content:
+                return "The summary cites a relevant study (citation needed)."
 
         # Fallback: If we are here, it means we are asked to revise something
-        # that we don't have a canned fix for.
+        # that we don't have a canned fix for (or the violation ID mismatch).
         # Ideally, we should try to extract the original draft from the prompt.
         if MARKER_ORIGINAL_DRAFT in user_content:
             try:
@@ -92,26 +96,32 @@ class SimulatedLLMClient(LLMClient):
 
         # Story A: GxP Compliance
         # Trigger: "hunch"
+        # Condition: Law GCP.4 must be in the prompt
         if TRIGGER_HUNCH in user_content.lower():
-            return Critique(
-                violation=True,
-                article_id=LAW_ID_GCP4,
-                severity=LawSeverity.HIGH,
-                reasoning=(
-                    "The draft recommends a dosage change based on a 'hunch', "
-                    "which violates the requirement for evidence-based claims."
-                ),
-            )  # type: ignore
+            # Check if GCP.4 is in the laws text provided in the prompt
+            # The prompt format in Judge.evaluate is: "Law ID: {law.id}"
+            if f"Law ID: {LAW_ID_GCP4}" in user_content:
+                return Critique(
+                    violation=True,
+                    article_id=LAW_ID_GCP4,
+                    severity=LawSeverity.HIGH,
+                    reasoning=(
+                        "The draft recommends a dosage change based on a 'hunch', "
+                        "which violates the requirement for evidence-based claims."
+                    ),
+                )  # type: ignore
 
         # Story C: Citation Check
         # Trigger: "NCT99999"
+        # Condition: Law REF.1 must be in the prompt
         if TRIGGER_NCT in user_content:
-            return Critique(
-                violation=True,
-                article_id=LAW_ID_REF1,
-                severity=LawSeverity.MEDIUM,
-                reasoning="The draft cites 'Study NCT99999' which is not found in the valid references list.",
-            )  # type: ignore
+            if f"Law ID: {LAW_ID_REF1}" in user_content:
+                return Critique(
+                    violation=True,
+                    article_id=LAW_ID_REF1,
+                    severity=LawSeverity.MEDIUM,
+                    reasoning="The draft cites 'Study NCT99999' which is not found in the valid references list.",
+                )  # type: ignore
 
         # Fallback: Safe Default (No Violation)
         return Critique(

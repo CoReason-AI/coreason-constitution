@@ -12,7 +12,7 @@ import pytest
 from pydantic import BaseModel
 
 from coreason_constitution.schema import Critique, LawSeverity
-from coreason_constitution.simulation import SimulatedLLMClient
+from coreason_constitution.simulation import LAW_ID_GCP4, LAW_ID_REF1, SimulatedLLMClient
 
 
 @pytest.fixture  # type: ignore
@@ -22,7 +22,8 @@ def client() -> SimulatedLLMClient:
 
 def test_judge_story_a_gxp(client: SimulatedLLMClient) -> None:
     """Test Story A (GxP) trigger for Judge."""
-    messages = [{"role": "user", "content": "I have a hunch we should increase the dosage."}]
+    # We must include the Law ID in the message to trigger the violation
+    messages = [{"role": "user", "content": f"Law ID: {LAW_ID_GCP4}\nI have a hunch we should increase the dosage."}]
     critique = client.structured_output(messages, Critique, model="test")
 
     assert critique.violation is True
@@ -33,7 +34,10 @@ def test_judge_story_a_gxp(client: SimulatedLLMClient) -> None:
 
 def test_judge_story_c_citation(client: SimulatedLLMClient) -> None:
     """Test Story C (Citation) trigger for Judge."""
-    messages = [{"role": "user", "content": "As seen in Study NCT99999, results are promising."}]
+    # We must include the Law ID in the message to trigger the violation
+    messages = [
+        {"role": "user", "content": f"Law ID: {LAW_ID_REF1}\nAs seen in Study NCT99999, results are promising."}
+    ]
     critique = client.structured_output(messages, Critique, model="test")
 
     assert critique.violation is True
@@ -64,7 +68,15 @@ def test_judge_invalid_model(client: SimulatedLLMClient) -> None:
 
 def test_revisor_story_a_gxp(client: SimulatedLLMClient) -> None:
     """Test Story A (GxP) trigger for Revisor."""
-    messages = [{"role": "user", "content": "--- ORIGINAL DRAFT ---\nI have a hunch...\n\n--- CRITIQUE ---\n..."}]
+    # Prompt must contain the Violation ID
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                f"--- ORIGINAL DRAFT ---\nI have a hunch...\n\n--- CRITIQUE ---\nViolation: {LAW_ID_GCP4}\n..."
+            ),
+        }
+    ]
     revision = client.chat_completion(messages, model="test")
 
     assert "dosage change is not supported without further trial evidence" in revision
@@ -72,7 +84,15 @@ def test_revisor_story_a_gxp(client: SimulatedLLMClient) -> None:
 
 def test_revisor_story_c_citation(client: SimulatedLLMClient) -> None:
     """Test Story C (Citation) trigger for Revisor."""
-    messages = [{"role": "user", "content": "--- ORIGINAL DRAFT ---\nStudy NCT99999...\n\n--- CRITIQUE ---\n..."}]
+    # Prompt must contain the Violation ID
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                f"--- ORIGINAL DRAFT ---\nStudy NCT99999...\n\n--- CRITIQUE ---\nViolation: {LAW_ID_REF1}\n..."
+            ),
+        }
+    ]
     revision = client.chat_completion(messages, model="test")
 
     assert "citation needed" in revision
@@ -102,7 +122,7 @@ def test_revisor_fallback_extraction_failure(client: SimulatedLLMClient) -> None
 
 def test_trigger_case_insensitivity(client: SimulatedLLMClient) -> None:
     """Test that 'HUNCH' triggers Story A just like 'hunch'."""
-    messages = [{"role": "user", "content": "I have a HUGE HUNCH about this."}]
+    messages = [{"role": "user", "content": f"Law ID: {LAW_ID_GCP4}\nI have a HUGE HUNCH about this."}]
     critique = client.structured_output(messages, Critique, model="test")
 
     assert critique.violation is True
@@ -114,7 +134,13 @@ def test_trigger_precedence(client: SimulatedLLMClient) -> None:
     Test behavior when multiple triggers are present.
     Current implementation checks 'hunch' first.
     """
-    messages = [{"role": "user", "content": "I have a hunch about Study NCT99999."}]
+    # Include BOTH Law IDs to make both triggers possible
+    messages = [
+        {
+            "role": "user",
+            "content": f"Law ID: {LAW_ID_GCP4}\nLaw ID: {LAW_ID_REF1}\nI have a hunch about Study NCT99999.",
+        }
+    ]
     critique = client.structured_output(messages, Critique, model="test")
 
     # Should trigger the first one checked (GCP.4 / Hunch)
@@ -157,16 +183,23 @@ def test_complex_full_compliance_cycle(client: SimulatedLLMClient) -> None:
     """
     # 1. Initial Draft
     draft = "I have a hunch regarding the dosage."
-    messages_1 = [{"role": "user", "content": draft}]
+    # Include Law ID
+    messages_1 = [{"role": "user", "content": f"Law ID: {LAW_ID_GCP4}\n{draft}"}]
 
     critique_1 = client.structured_output(messages_1, Critique, model="test")
     assert critique_1.violation is True
     assert critique_1.article_id == "GCP.4"
 
     # 2. Revision
-    # Construct prompt like RevisionEngine does
-    revision_prompt = f"--- ORIGINAL DRAFT ---\n{draft}\n\n--- CRITIQUE ---\n{critique_1.model_dump_json()}"
-    messages_2 = [{"role": "user", "content": revision_prompt}]
+    revision_prompt_fixed = (
+        f"--- ORIGINAL DRAFT ---\n{draft}\n\n"
+        f"--- CRITIQUE ---\n"
+        f"Violation: {critique_1.article_id}\n"
+        f"Severity: {critique_1.severity}\n"
+        f"Reasoning: {critique_1.reasoning}"
+    )
+
+    messages_2 = [{"role": "user", "content": revision_prompt_fixed}]
 
     revised_text = client.chat_completion(messages_2, model="test")
     # Verify the simulated revisor replaced the content
@@ -174,7 +207,7 @@ def test_complex_full_compliance_cycle(client: SimulatedLLMClient) -> None:
     assert "hunch" not in revised_text.lower()
 
     # 3. Final Judge Check
-    messages_3 = [{"role": "user", "content": revised_text}]
+    messages_3 = [{"role": "user", "content": f"Law ID: {LAW_ID_GCP4}\n{revised_text}"}]
     critique_2 = client.structured_output(messages_3, Critique, model="test")
 
     # Should be compliant now because 'hunch' is gone
