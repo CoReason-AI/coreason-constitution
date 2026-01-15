@@ -19,6 +19,7 @@ from coreason_constitution.schema import (
     Critique,
     LawSeverity,
     TraceIteration,
+    TraceStatus,
 )
 from coreason_constitution.sentinel import Sentinel
 from coreason_constitution.utils.diff import compute_unified_diff
@@ -95,6 +96,7 @@ class ConstitutionalSystem:
             refusal_message = reason
 
             return ConstitutionalTrace(
+                status=TraceStatus.BLOCKED,
                 input_draft=draft_response,  # The draft that was never shown
                 critique=critique,
                 revised_output=refusal_message,
@@ -111,6 +113,7 @@ class ConstitutionalSystem:
         if not initial_critique.violation:
             # Happy path: No violations found
             return ConstitutionalTrace(
+                status=TraceStatus.APPROVED,
                 input_draft=draft_response,
                 critique=initial_critique,
                 revised_output=draft_response,
@@ -169,6 +172,7 @@ class ConstitutionalSystem:
                 # Compute diff from ORIGINAL draft to FINAL output
                 delta = compute_unified_diff(draft_response, current_draft)
                 return ConstitutionalTrace(
+                    status=TraceStatus.REVISED,
                     input_draft=draft_response,
                     critique=initial_critique,  # The initial violation
                     revised_output=current_draft,
@@ -181,6 +185,7 @@ class ConstitutionalSystem:
         hard_refusal = "Safety Protocol Exception: Unable to generate compliant response."
 
         return ConstitutionalTrace(
+            status=TraceStatus.BLOCKED,
             input_draft=draft_response,
             critique=initial_critique,
             revised_output=hard_refusal,
