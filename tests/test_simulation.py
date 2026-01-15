@@ -68,7 +68,15 @@ def test_judge_invalid_model(client: SimulatedLLMClient) -> None:
 
 def test_revisor_story_a_gxp(client: SimulatedLLMClient) -> None:
     """Test Story A (GxP) trigger for Revisor."""
-    messages = [{"role": "user", "content": "--- ORIGINAL DRAFT ---\nI have a hunch...\n\n--- CRITIQUE ---\n..."}]
+    # Prompt must contain the Violation ID
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                f"--- ORIGINAL DRAFT ---\nI have a hunch...\n\n--- CRITIQUE ---\nViolation: {LAW_ID_GCP4}\n..."
+            ),
+        }
+    ]
     revision = client.chat_completion(messages, model="test")
 
     assert "dosage change is not supported without further trial evidence" in revision
@@ -76,7 +84,15 @@ def test_revisor_story_a_gxp(client: SimulatedLLMClient) -> None:
 
 def test_revisor_story_c_citation(client: SimulatedLLMClient) -> None:
     """Test Story C (Citation) trigger for Revisor."""
-    messages = [{"role": "user", "content": "--- ORIGINAL DRAFT ---\nStudy NCT99999...\n\n--- CRITIQUE ---\n..."}]
+    # Prompt must contain the Violation ID
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                f"--- ORIGINAL DRAFT ---\nStudy NCT99999...\n\n--- CRITIQUE ---\nViolation: {LAW_ID_REF1}\n..."
+            ),
+        }
+    ]
     revision = client.chat_completion(messages, model="test")
 
     assert "citation needed" in revision
@@ -175,9 +191,15 @@ def test_complex_full_compliance_cycle(client: SimulatedLLMClient) -> None:
     assert critique_1.article_id == "GCP.4"
 
     # 2. Revision
-    # Construct prompt like RevisionEngine does
-    revision_prompt = f"--- ORIGINAL DRAFT ---\n{draft}\n\n--- CRITIQUE ---\n{critique_1.model_dump_json()}"
-    messages_2 = [{"role": "user", "content": revision_prompt}]
+    revision_prompt_fixed = (
+        f"--- ORIGINAL DRAFT ---\n{draft}\n\n"
+        f"--- CRITIQUE ---\n"
+        f"Violation: {critique_1.article_id}\n"
+        f"Severity: {critique_1.severity}\n"
+        f"Reasoning: {critique_1.reasoning}"
+    )
+
+    messages_2 = [{"role": "user", "content": revision_prompt_fixed}]
 
     revised_text = client.chat_completion(messages_2, model="test")
     # Verify the simulated revisor replaced the content

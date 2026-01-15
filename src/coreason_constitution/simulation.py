@@ -49,21 +49,21 @@ class SimulatedLLMClient(LLMClient):
         user_content = next((m["content"] for m in messages if m["role"] == "user"), "")
 
         # Story A: GxP Compliance (Correction)
-        # Trigger: "hunch"
-        # Note: Revision logic runs AFTER Judge has flagged it, so we assume
-        # context was checked by Judge. However, strictly speaking, Revision
-        # also receives laws. But for simulation simplicity, we assume if we are
-        # asked to revise "hunch", we do it.
+        # Trigger: "hunch" AND Violation: GCP.4
         if TRIGGER_HUNCH in user_content.lower():
-            return "Based on current data, a dosage change is not supported without further trial evidence."
+            # Check if we are revising THIS specific violation
+            # The prompt format in RevisionEngine.revise includes: "Violation: {critique.article_id}"
+            if f"Violation: {LAW_ID_GCP4}" in user_content:
+                return "Based on current data, a dosage change is not supported without further trial evidence."
 
         # Story C: Citation Check (Hallucination Defense)
-        # Trigger: "NCT99999"
+        # Trigger: "NCT99999" AND Violation: REF.1
         if TRIGGER_NCT in user_content:
-            return "The summary cites a relevant study (citation needed)."
+            if f"Violation: {LAW_ID_REF1}" in user_content:
+                return "The summary cites a relevant study (citation needed)."
 
         # Fallback: If we are here, it means we are asked to revise something
-        # that we don't have a canned fix for.
+        # that we don't have a canned fix for (or the violation ID mismatch).
         # Ideally, we should try to extract the original draft from the prompt.
         if MARKER_ORIGINAL_DRAFT in user_content:
             try:
