@@ -1,0 +1,7 @@
+[
+  {
+    "id": "SEC.1",
+    "pattern": "delete.*database",
+    "description": "Destructive Intent detected: Database deletion attempt."
+  }
+]

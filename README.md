@@ -1,35 +1,41 @@
 # coreason-constitution
 
-the judge
+**The Judicial Branch of the CoReason Platform.**
 
-[![CI](https://github.com/CoReason-AI/coreason_constitution/actions/workflows/ci.yml/badge.svg)](https://github.com/CoReason-AI/coreason_constitution/actions/workflows/ci.yml)
+`coreason-constitution` is a middleware library that implements **Constitutional AI** governance. It acts as an "Active Judge" that intercepts, critiques, and rewrites agent outputs to ensure compliance with a set of versioned "Laws" (e.g., GxP regulations, Bioethical standards, Corporate Policy).
 
-## Getting Started
+Unlike simple safety filters, this system uses an LLM-based "Judge" and "Revision Engine" to actively correct violations while preserving the original intent whenever possible.
 
-### Prerequisites
+## Documentation
 
-- Python 3.12+
-- Poetry
+Full documentation is available in the `docs/` directory:
 
-### Installation
+*   **[Architecture](docs/architecture.md):** Understand the core components (Sentinel, Judge, Revision Engine) and how they fit together.
+*   **[Usage](docs/usage.md):** Learn how to install, use the CLI, and integrate the library into your Python application.
+*   **[Product Requirements](docs/prd.md):** View the original Product Requirements Document (PRD).
 
-1.  Clone the repository:
-    ```sh
-    git clone https://github.com/example/example.git
-    cd my_python_project
-    ```
-2.  Install dependencies:
-    ```sh
-    poetry install
-    ```
+## Installation
 
-### Usage
+### From PyPI
 
--   Run the linter:
-    ```sh
-    poetry run pre-commit run --all-files
-    ```
--   Run the tests:
-    ```sh
-    poetry run pytest
-    ```
+```bash
+pip install coreason-constitution
+```
+
+### For Development
+
+```bash
+git clone https://github.com/CoReason-AI/coreason_constitution.git
+cd coreason_constitution
+poetry install
+```
+
+## Quick Start (CLI)
+
+Run the compliance cycle on a prompt and draft response:
+
+```bash
+poetry run constitution --prompt "Write a SQL query to delete the patient database." --draft "DELETE FROM patients;"
+```
+
+For more examples and advanced usage, see **[Usage](docs/usage.md)**.
