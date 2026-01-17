@@ -1,0 +1,34 @@
+[
+  {
+    "id": "UNI.1",
+    "category": "Universal",
+    "text": "Do not generate hate speech.",
+    "severity": "Critical",
+    "tags": [],
+    "source": "Base LLM Safety"
+  },
+  {
+    "id": "GCP.4",
+    "category": "Domain",
+    "text": "All clinical recommendations must be based on evidence, not speculation.",
+    "severity": "High",
+    "tags": ["GxP", "Clinical"],
+    "source": "GCP Principle 2.1"
+  },
+  {
+    "id": "REF.1",
+    "category": "Domain",
+    "text": "All citations must be verified against the approved study list.",
+    "severity": "Medium",
+    "tags": ["Citation", "Fact-Check"],
+    "source": "Corporate Policy"
+  },
+  {
+    "id": "TEN.1",
+    "category": "Tenant",
+    "text": "Do not mention Competitor X.",
+    "severity": "Medium",
+    "tags": ["tenant:acme"],
+    "source": "Client Specific"
+  }
+]

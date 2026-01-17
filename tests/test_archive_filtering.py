@@ -1,3 +1,13 @@
+# Copyright (c) 2025 CoReason, Inc.
+#
+# This software is proprietary and dual-licensed.
+# Licensed under the Prosperity Public License 3.0 (the "License").
+# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
+# For details, see the LICENSE file.
+# Commercial use beyond a 30-day trial requires a separate license.
+#
+# Source Code: https://github.com/CoReason-AI/coreason_constitution
+
 from typing import List
 
 import pytest
@@ -6,7 +16,7 @@ from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.schema import Law, LawCategory
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture  # type: ignore
 def sample_laws() -> List[Law]:
     return [
         Law(
@@ -60,7 +70,7 @@ def sample_laws() -> List[Law]:
     ]
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture  # type: ignore
 def archive_with_laws(sample_laws: List[Law]) -> LegislativeArchive:
     archive = LegislativeArchive()
     # Manually inject laws to avoid filesystem dependency for this unit test

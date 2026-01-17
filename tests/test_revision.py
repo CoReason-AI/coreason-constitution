@@ -1,3 +1,13 @@
+# Copyright (c) 2025 CoReason, Inc.
+#
+# This software is proprietary and dual-licensed.
+# Licensed under the Prosperity Public License 3.0 (the "License").
+# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
+# For details, see the LICENSE file.
+# Commercial use beyond a 30-day trial requires a separate license.
+#
+# Source Code: https://github.com/CoReason-AI/coreason_constitution
+
 from typing import Any, Dict, List, Type
 from unittest.mock import MagicMock
 
@@ -119,7 +129,7 @@ def test_revise_llm_failure(revision_engine: RevisionEngine, sample_law: Law) ->
     critique = Critique(violation=True, article_id="GCP.1", reasoning="Bad")
 
     # Mock exception
-    revision_engine.client.chat_completion = MagicMock(side_effect=RuntimeError("LLM Error"))  # type: ignore
+    revision_engine.client.chat_completion = MagicMock(side_effect=RuntimeError("LLM Error"))  # type: ignore[method-assign]  # type: ignore[method-assign]
 
     with pytest.raises(RuntimeError):
         revision_engine.revise(draft, critique, [sample_law])

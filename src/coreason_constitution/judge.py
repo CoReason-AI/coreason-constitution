@@ -1,7 +1,17 @@
-from typing import List
+# Copyright (c) 2025 CoReason, Inc.
+#
+# This software is proprietary and dual-licensed.
+# Licensed under the Prosperity Public License 3.0 (the "License").
+# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
+# For details, see the LICENSE file.
+# Commercial use beyond a 30-day trial requires a separate license.
+#
+# Source Code: https://github.com/CoReason-AI/coreason_constitution
+
+from typing import List, Optional
 
 from coreason_constitution.interfaces import LLMClient
-from coreason_constitution.schema import Critique, Law, LawSeverity
+from coreason_constitution.schema import Critique, Law, LawSeverity, Reference
 from coreason_constitution.utils.logger import logger
 
 
@@ -21,21 +31,17 @@ class ConstitutionalJudge:
         self.client = llm_client
         self.model = model_id
 
-    def evaluate(self, draft: str, laws: List[Law]) -> Critique:
+    def evaluate(self, draft: str, laws: List[Law], references: Optional[List[Reference]] = None) -> Critique:
         """
-        Evaluate a draft response against the provided laws.
+        Evaluate a draft response against the provided laws and optional references.
 
         :param draft: The text content to evaluate.
         :param laws: A list of Law objects to enforce.
+        :param references: A list of valid Reference objects to verify against.
         :return: A Critique object detailing any violations.
         """
         if not draft.strip():
             logger.warning("ConstitutionalJudge received empty draft.")
-            # If draft is empty, strictly speaking it might not violate "harm" laws,
-            # but it is a degenerate case. Let's return no violation for now,
-            # or we could argue it fails "helpfulness".
-            # Given the schema requires min_length=1 for Critique.reasoning,
-            # we must provide a reason.
             return Critique(
                 violation=False,
                 reasoning="Draft is empty; no content to evaluate.",
@@ -63,14 +69,32 @@ class ConstitutionalJudge:
         # Format laws into a clear text block
         laws_text = "\n".join([f"Law ID: {law.id}\nCategory: {law.category.value}\nText: {law.text}" for law in laws])
 
-        user_content = f"--- CONSTITUTION LAWS ---\n{laws_text}\n\n--- DRAFT CONTENT ---\n{draft}"
+        # Format references if present
+        ref_text = ""
+        if references:
+            ref_list = []
+            for ref in references:
+                ref_str = f"ID: {ref.id} | Text: {ref.text}"
+                if ref.url:
+                    ref_str += f" | URL: {ref.url}"
+                ref_list.append(ref_str)
+            ref_text = "\n\n--- VALID REFERENCES ---\n" + "\n".join(ref_list)
+            system_prompt += (
+                " If the laws require checking citations (e.g., against a valid reference list), "
+                "use the provided VALID REFERENCES section to verify any citations in the draft."
+            )
+
+        user_content = f"--- CONSTITUTION LAWS ---\n{laws_text}{ref_text}\n\n--- DRAFT CONTENT ---\n{draft}"
 
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content},
         ]
 
-        logger.info(f"Judge evaluating draft (len={len(draft)}) against {len(laws)} laws.")
+        logger.info(
+            f"Judge evaluating draft (len={len(draft)}) against {len(laws)} laws "
+            f"and {len(references or [])} references."
+        )
 
         try:
             critique = self.client.structured_output(

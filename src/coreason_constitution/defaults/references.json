@@ -1,0 +1,19 @@
+[
+  {
+    "id": "REF.123",
+    "text": "Clinical Study on Dosage Variations (2024)",
+    "tags": ["GxP", "Clinical"],
+    "url": "https://clinicaltrials.gov/study/NCT12345",
+    "metadata": {
+      "author": "Dr. Smith",
+      "year": 2024
+    }
+  },
+  {
+      "id": "REF.UNIV",
+      "text": "Universal Safety Guidelines",
+      "tags": [],
+      "url": "https://safety.coreason.ai",
+      "metadata": {}
+  }
+]

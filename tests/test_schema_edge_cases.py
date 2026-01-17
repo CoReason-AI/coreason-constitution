@@ -1,10 +1,25 @@
+# Copyright (c) 2025 CoReason, Inc.
+#
+# This software is proprietary and dual-licensed.
+# Licensed under the Prosperity Public License 3.0 (the "License").
+# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
+# For details, see the LICENSE file.
+# Commercial use beyond a 30-day trial requires a separate license.
+#
+# Source Code: https://github.com/CoReason-AI/coreason_constitution
+
 import pytest
 from pydantic import ValidationError
 
-from coreason_constitution.schema import ConstitutionalTrace, Critique, LawSeverity
+from coreason_constitution.schema import (
+    ConstitutionalTrace,
+    Critique,
+    LawSeverity,
+    TraceStatus,
+)
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture  # type: ignore
 def base_critique() -> Critique:
     return Critique(
         violation=True,
@@ -25,6 +40,7 @@ def test_empty_strings_constraints() -> None:
     critique = Critique(violation=False, reasoning="Ok.")
     with pytest.raises(ValidationError) as exc:
         ConstitutionalTrace(
+            status=TraceStatus.APPROVED,
             input_draft="",  # Empty
             critique=critique,
             revised_output="Valid",
@@ -34,6 +50,7 @@ def test_empty_strings_constraints() -> None:
     # ConstitutionalTrace.revised_output
     with pytest.raises(ValidationError) as exc:
         ConstitutionalTrace(
+            status=TraceStatus.APPROVED,
             input_draft="Valid",
             critique=critique,
             revised_output="",  # Empty
@@ -43,6 +60,7 @@ def test_empty_strings_constraints() -> None:
     # ConstitutionalTrace.delta (Optional but if present must be >=1 char)
     with pytest.raises(ValidationError) as exc:
         ConstitutionalTrace(
+            status=TraceStatus.APPROVED,
             input_draft="Valid",
             critique=critique,
             revised_output="Valid",
@@ -59,6 +77,7 @@ def test_unicode_handling() -> None:
 
     draft = "User said: こんにちは world 🌍"
     trace = ConstitutionalTrace(
+        status=TraceStatus.APPROVED,
         input_draft=draft,
         critique=critique,
         revised_output=draft,
@@ -73,6 +92,7 @@ def test_large_payload(base_critique: Critique) -> None:
     """Verify handling of large string payloads (e.g., 100KB)."""
     large_text = "A" * 100_000  # 100KB
     trace = ConstitutionalTrace(
+        status=TraceStatus.REVISED,
         input_draft=large_text,
         critique=base_critique,
         revised_output=large_text,
@@ -89,6 +109,7 @@ def test_large_payload(base_critique: Critique) -> None:
 def test_serialization_roundtrip(base_critique: Critique) -> None:
     """Verify full JSON serialization and deserialization roundtrip."""
     trace = ConstitutionalTrace(
+        status=TraceStatus.REVISED,
         input_draft="Original text\nWith newline.",
         critique=base_critique,
         revised_output="Revised text\nWith newline.",
@@ -98,6 +119,7 @@ def test_serialization_roundtrip(base_critique: Critique) -> None:
     json_str = trace.model_dump_json()
     restored = ConstitutionalTrace.model_validate_json(json_str)
 
+    assert restored.status == TraceStatus.REVISED
     assert restored.input_draft == trace.input_draft
     assert restored.critique.violation == trace.critique.violation
     assert restored.critique.severity == trace.critique.severity

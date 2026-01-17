@@ -1,12 +1,27 @@
+# Copyright (c) 2025 CoReason, Inc.
+#
+# This software is proprietary and dual-licensed.
+# Licensed under the Prosperity Public License 3.0 (the "License").
+# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
+# For details, see the LICENSE file.
+# Commercial use beyond a 30-day trial requires a separate license.
+#
+# Source Code: https://github.com/CoReason-AI/coreason_constitution
+
 from typing import Any, Dict
 
 import pytest
 from pydantic import ValidationError
 
-from coreason_constitution.schema import ConstitutionalTrace, Critique, LawSeverity
+from coreason_constitution.schema import (
+    ConstitutionalTrace,
+    Critique,
+    LawSeverity,
+    TraceStatus,
+)
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture  # type: ignore
 def critique_valid() -> Dict[str, Any]:
     return {
         "violation": True,
@@ -48,11 +63,13 @@ def test_critique_missing_required() -> None:
 def test_trace_model() -> None:
     critique = Critique(violation=True, article_id="U1", severity=LawSeverity.CRITICAL, reasoning="Bad.")
     trace = ConstitutionalTrace(
+        status=TraceStatus.REVISED,
         input_draft="Bad draft",
         critique=critique,
         revised_output="Good draft",
         delta="--- +++ diff",
     )
+    assert trace.status == TraceStatus.REVISED
     assert trace.input_draft == "Bad draft"
     assert trace.critique.violation is True
     assert trace.delta == "--- +++ diff"
@@ -61,9 +78,11 @@ def test_trace_model() -> None:
 def test_trace_optional_delta() -> None:
     critique = Critique(violation=False, reasoning="Ok.")
     trace = ConstitutionalTrace(
+        status=TraceStatus.APPROVED,
         input_draft="Good draft",
         critique=critique,
         revised_output="Good draft",
         # delta is optional
     )
+    assert trace.status == TraceStatus.APPROVED
     assert trace.delta is None
