@@ -36,8 +36,11 @@ def test_malformed_json_file() -> None:
 def test_schema_violation_missing_field() -> None:
     """Test that a Law object missing a required field (category) raises ValueError."""
     archive = LegislativeArchive()
-    # Missing 'category'
-    content = '[{"id": "BAD.1", "text": "Missing category", "severity": "Low"}]'
+    # Missing 'category' (for Law), missing 'pattern' (for Rule), missing 'text' (for Ref)
+    # Wait, 'text' is missing below? No, "text" is present.
+    # I should remove "text" to make it invalid for Reference AND Law.
+    # And no pattern means invalid for Rule.
+    content = '[{"id": "BAD.1", "severity": "Low"}]'
 
     with patch("pathlib.Path.rglob") as mock_rglob, patch("pathlib.Path.exists") as mock_exists:
         file_mock = MagicMock()

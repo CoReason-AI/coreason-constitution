@@ -1,3 +1,5 @@
+from typing import Any
+
 # Copyright (c) 2025 CoReason, Inc.
 #
 # This software is proprietary and dual-licensed.
@@ -7,7 +9,6 @@
 # Commercial use beyond a 30-day trial requires a separate license.
 #
 # Source Code: https://github.com/CoReason-AI/coreason_constitution
-
 from unittest.mock import Mock, create_autospec
 
 import pytest
@@ -25,23 +26,23 @@ from coreason_constitution.sentinel import Sentinel
 
 
 @pytest.fixture  # type: ignore
-def mock_archive() -> Mock:
-    return create_autospec(LegislativeArchive, instance=True)  # type: ignore
+def mock_archive() -> Any:
+    return create_autospec(LegislativeArchive, instance=True)
 
 
 @pytest.fixture  # type: ignore
-def mock_sentinel() -> Mock:
-    return create_autospec(Sentinel, instance=True)  # type: ignore
+def mock_sentinel() -> Any:
+    return create_autospec(Sentinel, instance=True)
 
 
 @pytest.fixture  # type: ignore
-def mock_judge() -> Mock:
-    return create_autospec(ConstitutionalJudge, instance=True)  # type: ignore
+def mock_judge() -> Any:
+    return create_autospec(ConstitutionalJudge, instance=True)
 
 
 @pytest.fixture  # type: ignore
-def mock_revision() -> Mock:
-    return create_autospec(RevisionEngine, instance=True)  # type: ignore
+def mock_revision() -> Any:
+    return create_autospec(RevisionEngine, instance=True)
 
 
 @pytest.fixture  # type: ignore
