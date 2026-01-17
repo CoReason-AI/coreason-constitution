@@ -14,7 +14,7 @@ from typing import List, Optional, Set
 
 from pydantic import TypeAdapter, ValidationError
 
-from coreason_constitution.schema import Artifact, Constitution, Law, LawCategory, SentinelRule
+from coreason_constitution.schema import Artifact, Constitution, Law, LawCategory, Reference, SentinelRule
 from coreason_constitution.utils.logger import logger
 
 
@@ -22,6 +22,7 @@ class LegislativeArchive:
     def __init__(self) -> None:
         self._laws: List[Law] = []
         self._sentinel_rules: List[SentinelRule] = []
+        self._references: List[Reference] = []
         self._version: str = "0.0.0"
 
     def load_defaults(self) -> None:
@@ -51,6 +52,8 @@ class LegislativeArchive:
         loaded_ids: Set[str] = set()
         loaded_sentinel_rules: List[SentinelRule] = []
         loaded_rule_ids: Set[str] = set()
+        loaded_references: List[Reference] = []
+        loaded_ref_ids: Set[str] = set()
 
         adapter: TypeAdapter[Artifact] = TypeAdapter(Artifact)
 
@@ -71,10 +74,12 @@ class LegislativeArchive:
 
                 new_laws: List[Law] = []
                 new_rules: List[SentinelRule] = []
+                new_references: List[Reference] = []
 
                 if isinstance(parsed_obj, Constitution):
                     new_laws.extend(parsed_obj.laws)
                     new_rules.extend(parsed_obj.sentinel_rules)
+                    new_references.extend(parsed_obj.references)
                     self._version = parsed_obj.version
 
                 elif isinstance(parsed_obj, list):
@@ -83,12 +88,17 @@ class LegislativeArchive:
                             new_rules.append(item)
                         elif isinstance(item, Law):
                             new_laws.append(item)
+                        elif isinstance(item, Reference):
+                            new_references.append(item)
 
                 elif isinstance(parsed_obj, SentinelRule):
                     new_rules.append(parsed_obj)
 
                 elif isinstance(parsed_obj, Law):
                     new_laws.append(parsed_obj)
+
+                elif isinstance(parsed_obj, Reference):
+                    new_references.append(parsed_obj)
 
                 # Check for duplicates before adding laws
                 for law in new_laws:
@@ -108,6 +118,15 @@ class LegislativeArchive:
                     loaded_rule_ids.add(rule.id)
                     loaded_sentinel_rules.append(rule)
 
+                # Check for duplicates before adding references
+                for ref in new_references:
+                    if ref.id in loaded_ref_ids:
+                        msg = f"Duplicate Reference ID detected: {ref.id} in {file_path}"
+                        logger.error(msg)
+                        raise ValueError(msg)
+                    loaded_ref_ids.add(ref.id)
+                    loaded_references.append(ref)
+
                 logger.info(f"Loaded content from {file_path}")
 
             except Exception as e:
@@ -118,13 +137,35 @@ class LegislativeArchive:
 
         self._laws = loaded_laws
         self._sentinel_rules = loaded_sentinel_rules
+        self._references = loaded_references
         logger.info(
-            f"LegislativeArchive loaded {len(self._laws)} laws and {len(self._sentinel_rules)} sentinel rules total."
+            f"LegislativeArchive loaded {len(self._laws)} laws, "
+            f"{len(self._sentinel_rules)} rules, and {len(self._references)} references."
         )
 
     def get_sentinel_rules(self) -> List[SentinelRule]:
         """Retrieve all loaded sentinel rules."""
         return self._sentinel_rules
+
+    def get_references(self, context_tags: Optional[List[str]] = None) -> List[Reference]:
+        """
+        Retrieve references, optionally filtered by context tags.
+
+        :param context_tags: List of strings representing the current context (e.g. ["tenant:acme"]).
+                             If provided, a reference is included ONLY if:
+                             1. It has NO tags (Universal application), OR
+                             2. At least one of its tags exists in `context_tags`.
+                             If None, all references are included.
+        :return: List of filtered Reference objects.
+        """
+        filtered_refs = self._references
+
+        # Filter by Context Tags
+        if context_tags is not None:
+            context_set = set(context_tags)
+            filtered_refs = [ref for ref in filtered_refs if not ref.tags or not set(ref.tags).isdisjoint(context_set)]
+
+        return filtered_refs
 
     def get_laws(
         self,

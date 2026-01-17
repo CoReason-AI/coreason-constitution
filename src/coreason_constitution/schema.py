@@ -9,7 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/coreason_constitution
 
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -48,15 +48,24 @@ class SentinelRule(BaseModel):
     description: str = Field(..., min_length=1, description="Description of the rule")
 
 
+class Reference(BaseModel):
+    id: str = Field(..., min_length=1, description="Unique identifier for the reference (e.g., 'NCT12345')")
+    text: str = Field(..., min_length=1, description="The citation text or title")
+    tags: List[str] = Field(default_factory=list, description="Tags for context filtering")
+    url: Optional[str] = Field(default=None, description="URL to the source")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+
+
 class Constitution(BaseModel):
     version: str = Field(..., description="Version of this constitution set")
     laws: List[Law] = Field(default_factory=list, description="List of laws")
     sentinel_rules: List[SentinelRule] = Field(default_factory=list, description="List of Sentinel red line rules")
+    references: List[Reference] = Field(default_factory=list, description="List of valid references")
 
 
 # Union type for loading artifacts
-LawOrRule = Union[Law, SentinelRule]
-Artifact = Union[Constitution, List[LawOrRule], LawOrRule]
+LawOrRuleOrRef = Union[Law, SentinelRule, Reference]
+Artifact = Union[Constitution, List[LawOrRuleOrRef], LawOrRuleOrRef]
 
 
 class Critique(BaseModel):

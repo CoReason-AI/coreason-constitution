@@ -129,7 +129,7 @@ def test_revise_llm_failure(revision_engine: RevisionEngine, sample_law: Law) ->
     critique = Critique(violation=True, article_id="GCP.1", reasoning="Bad")
 
     # Mock exception
-    revision_engine.client.chat_completion = MagicMock(side_effect=RuntimeError("LLM Error"))  # type: ignore
+    revision_engine.client.chat_completion = MagicMock(side_effect=RuntimeError("LLM Error"))  # type: ignore[method-assign]  # type: ignore[method-assign]
 
     with pytest.raises(RuntimeError):
         revision_engine.revise(draft, critique, [sample_law])
