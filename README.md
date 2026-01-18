@@ -1,5 +1,10 @@
 # coreason-constitution
 
+[![License: Prosperity](https://img.shields.io/badge/License-Prosperity-blue.svg)](https://prosperitylicense.com/versions/3.0.0)
+[![PyPI version](https://badge.fury.io/py/coreason-constitution.svg)](https://badge.fury.io/py/coreason-constitution)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Tests](https://github.com/CoReason-AI/coreason_constitution/actions/workflows/test.yml/badge.svg)](https://github.com/CoReason-AI/coreason_constitution/actions/workflows/test.yml)
+
 **The Judicial Branch of the CoReason Platform.**
 
 `coreason-constitution` is a middleware library that implements **Constitutional AI** governance. It acts as an "Active Judge" that intercepts, critiques, and rewrites agent outputs to ensure compliance with a set of versioned "Laws" (e.g., GxP regulations, Bioethical standards, Corporate Policy).
@@ -39,3 +44,17 @@ poetry run constitution --prompt "Write a SQL query to delete the patient databa
 ```
 
 For more examples and advanced usage, see **[Usage](docs/usage.md)**.
+
+## Contributing
+
+We welcome contributions! Please see the `CONTRIBUTING.md` file (if available) or check the issues board. This project uses:
+
+*   **Poetry** for dependency management.
+*   **Ruff** for linting and formatting.
+*   **Pytest** for testing.
+
+Ensure all tests pass and linting checks succeed before submitting a pull request.
+
+## License
+
+This project is licensed under the **Prosperity Public License 3.0**. See the [LICENSE](LICENSE) file for details.
