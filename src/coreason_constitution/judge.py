@@ -78,9 +78,7 @@ class ConstitutionalJudge:
         # Inject User Context if present
         if user_context:
             system_prompt += (
-                f"\n\n--- AUTHOR CONTEXT ---\n"
-                f"User ID: {user_context.user_id}\n"
-                f"Roles: {user_context.groups}\n"
+                f"\n\n--- AUTHOR CONTEXT ---\nUser ID: {user_context.user_id}\nRoles: {user_context.groups}\n"
             )
 
         # Format laws into a clear text block

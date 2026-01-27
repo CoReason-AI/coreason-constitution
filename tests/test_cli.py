@@ -106,6 +106,24 @@ def test_cli_missing_file(capsys: CaptureFixture[str], tmp_path: Path) -> None:
         assert excinfo.value.code == 1
 
 
+def test_cli_invalid_user_context(capsys: CaptureFixture[str]) -> None:
+    """Test CLI behavior when UserContext creation fails (e.g. invalid email)."""
+    test_args = [
+        "main.py",
+        "--prompt",
+        "Hello",
+        "--user-id",
+        "u123",
+        "--user-email",
+        "not-an-email",  # Should trigger Pydantic validation error
+    ]
+    with patch.object(sys, "argv", test_args):
+        # We expect SystemExit(1) due to the try-except block in main.py
+        with pytest.raises(SystemExit) as excinfo:
+            main()
+        assert excinfo.value.code == 1
+
+
 def test_cli_sentinel_blocked_full_cycle(capsys: CaptureFixture[str]) -> None:
     """Test CLI full cycle but blocked by Sentinel (never reaches draft check)."""
     test_args = ["main.py", "--prompt", "delete database", "--draft", "Irrelevant"]

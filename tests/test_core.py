@@ -12,7 +12,6 @@ from typing import Any
 from unittest.mock import Mock, create_autospec
 
 import pytest
-
 from coreason_identity.models import UserContext
 
 from coreason_constitution.archive import LegislativeArchive

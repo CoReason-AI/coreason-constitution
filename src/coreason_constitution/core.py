@@ -113,9 +113,7 @@ class ConstitutionalSystem:
 
         # 3. Initial Judge Evaluation
         current_draft = draft_response
-        initial_critique = self.judge.evaluate(
-            current_draft, active_laws, active_references, user_context=user_context
-        )
+        initial_critique = self.judge.evaluate(current_draft, active_laws, active_references, user_context=user_context)
 
         if not initial_critique.violation:
             # Happy path: No violations found

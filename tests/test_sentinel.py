@@ -12,9 +12,8 @@ import json
 from pathlib import Path
 
 import pytest
-from loguru import logger
-
 from coreason_identity.models import UserContext
+from loguru import logger
 
 from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.exceptions import SecurityException

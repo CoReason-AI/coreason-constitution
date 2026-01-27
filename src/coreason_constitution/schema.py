@@ -46,7 +46,9 @@ class SentinelRule(BaseModel):
     id: str = Field(..., min_length=1, description="Unique identifier for the rule (e.g., 'SR.1')")
     pattern: str = Field(..., min_length=1, description="Regex pattern to match")
     description: str = Field(..., min_length=1, description="Description of the rule")
-    exempt_groups: List[str] = Field(default_factory=list, description="List of user groups allowed to bypass this rule")
+    exempt_groups: List[str] = Field(
+        default_factory=list, description="List of user groups allowed to bypass this rule"
+    )
 
 
 class Reference(BaseModel):
