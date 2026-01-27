@@ -17,6 +17,7 @@ from coreason_constitution.schema import (
     ConstitutionalTrace,
     Critique,
     LawSeverity,
+    SentinelRule,
     TraceStatus,
 )
 
@@ -86,3 +87,25 @@ def test_trace_optional_delta() -> None:
     )
     assert trace.status == TraceStatus.APPROVED
     assert trace.delta is None
+
+
+def test_sentinel_rule_model() -> None:
+    rule = SentinelRule(
+        id="SR.1",
+        pattern="bad",
+        description="No bad words",
+        exempt_groups=["admin", "moderator"],
+    )
+    assert rule.id == "SR.1"
+    assert rule.pattern == "bad"
+    assert rule.description == "No bad words"
+    assert rule.exempt_groups == ["admin", "moderator"]
+
+
+def test_sentinel_rule_defaults() -> None:
+    rule = SentinelRule(
+        id="SR.2",
+        pattern="worse",
+        description="No worse words",
+    )
+    assert rule.exempt_groups == []

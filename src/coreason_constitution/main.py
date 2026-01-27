@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from coreason_identity.models import UserContext
+
 from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.core import ConstitutionalSystem
 from coreason_constitution.exceptions import SecurityException
@@ -65,7 +67,29 @@ def main() -> None:
         help="Maximum number of revision attempts (default: 3)",
     )
 
+    # User Identity Group
+    identity_group = parser.add_argument_group("Identity")
+    identity_group.add_argument("--user-id", help="The ID of the user authoring the content")
+    identity_group.add_argument("--user-email", help="The email of the user")
+    identity_group.add_argument("--user-roles", nargs="*", default=[], help="List of roles/groups for the user")
+
     args = parser.parse_args()
+
+    # Construct User Context
+    user_context: Optional[UserContext] = None
+    if args.user_id:
+        if not args.user_email:
+            logger.error("User email is required when user ID is provided.")
+            sys.exit(1)
+        try:
+            user_context = UserContext(
+                user_id=args.user_id,
+                email=args.user_email,
+                groups=args.user_roles,
+            )
+        except Exception as e:
+            logger.error(f"Failed to create UserContext: {e}")
+            sys.exit(1)
 
     # Load Inputs
     input_prompt = load_input(args.prompt, args.prompt_file)
@@ -108,6 +132,7 @@ def main() -> None:
                 draft_response=draft_response,
                 context_tags=args.context,
                 max_retries=args.max_retries,
+                user_context=user_context,
             )
             # Output Trace as JSON
             print(trace.model_dump_json(indent=2))
@@ -117,7 +142,7 @@ def main() -> None:
     else:
         # Sentinel Only Mode
         try:
-            sentinel.check(input_prompt)
+            sentinel.check(input_prompt, user_context=user_context)
             # If no exception, it passed
             result = {"status": "APPROVED", "message": "Input prompt passed Sentinel checks."}
             print(json.dumps(result, indent=2))

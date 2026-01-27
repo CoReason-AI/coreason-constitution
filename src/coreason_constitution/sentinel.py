@@ -9,7 +9,9 @@
 # Source Code: https://github.com/CoReason-AI/coreason_constitution
 
 import re
-from typing import List
+from typing import List, Optional
+
+from coreason_identity.models import UserContext
 
 from coreason_constitution.exceptions import SecurityException
 from coreason_constitution.schema import SentinelRule
@@ -48,12 +50,13 @@ class Sentinel:
                 # But here we are just initializing. If a rule is bad, we probably want to fix it.
                 # Let's log error.
 
-    def check(self, content: str) -> None:
+    def check(self, content: str, user_context: Optional[UserContext] = None) -> None:
         """
         Scans the content against all configured Red Line rules.
         Raises SecurityException if a match is found.
 
         :param content: The text content to scan (usually the user input prompt).
+        :param user_context: Context of the user making the request.
         :raises SecurityException: If any rule is violated.
         """
         if not content:
@@ -61,5 +64,12 @@ class Sentinel:
 
         for rule, pattern in self._compiled_patterns:
             if pattern.search(content):
+                # Check for exemptions
+                if user_context and any(group in rule.exempt_groups for group in user_context.groups):
+                    logger.warning(
+                        f"Sentinel match bypassed for privileged user {user_context.user_id} on rule {rule.id}"
+                    )
+                    continue
+
                 logger.warning(f"Sentinel Red Line crossed: {rule.id} - {rule.description}")
                 raise SecurityException(f"Security Protocol Violation: {rule.id}. Request denied.")
