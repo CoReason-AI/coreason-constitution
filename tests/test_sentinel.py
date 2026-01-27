@@ -14,6 +14,8 @@ from pathlib import Path
 import pytest
 from loguru import logger
 
+from coreason_identity.models import UserContext
+
 from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.exceptions import SecurityException
 from coreason_constitution.schema import SentinelRule
@@ -187,3 +189,92 @@ class TestSentinelIntegration:
         archive = LegislativeArchive()
         with pytest.raises(ValueError, match="Duplicate Sentinel Rule ID detected: RED.1"):
             archive.load_from_directory(tmp_path)
+
+
+class TestSentinelExemptions:
+    def test_exemption_bypass(self) -> None:
+        """Test that a user with an exempt group can bypass a specific rule."""
+        rules = [
+            SentinelRule(
+                id="SR.ADMIN_ONLY",
+                pattern="sudo",
+                description="Admin command",
+                exempt_groups=["admins"],
+            )
+        ]
+        sentinel = Sentinel(rules)
+        user_context = UserContext(user_id="u123", email="u123@example.com", groups=["admins", "staff"])
+
+        # Capture logs
+        logs = []
+        handler_id = logger.add(lambda msg: logs.append(msg.record["message"]))
+
+        try:
+            # Should NOT raise exception
+            sentinel.check("sudo reboot", user_context)
+        finally:
+            logger.remove(handler_id)
+
+        # Should log the bypass
+        log_text = "\n".join(logs)
+        assert "Sentinel match bypassed" in log_text
+        assert "u123" in log_text
+        assert "SR.ADMIN_ONLY" in log_text
+
+    def test_no_exemption_violation(self) -> None:
+        """Test that a user WITHOUT the exempt group is still blocked."""
+        rules = [
+            SentinelRule(
+                id="SR.ADMIN_ONLY",
+                pattern="sudo",
+                description="Admin command",
+                exempt_groups=["admins"],
+            )
+        ]
+        sentinel = Sentinel(rules)
+        user_context = UserContext(user_id="u456", email="u456@example.com", groups=["staff", "interns"])
+
+        # Should raise exception
+        with pytest.raises(SecurityException, match="SR.ADMIN_ONLY"):
+            sentinel.check("sudo reboot", user_context)
+
+    def test_none_user_context(self) -> None:
+        """Test that no user context means no exemptions."""
+        rules = [
+            SentinelRule(
+                id="SR.ADMIN_ONLY",
+                pattern="sudo",
+                description="Admin command",
+                exempt_groups=["admins"],
+            )
+        ]
+        sentinel = Sentinel(rules)
+
+        with pytest.raises(SecurityException, match="SR.ADMIN_ONLY"):
+            sentinel.check("sudo reboot", None)
+
+    def test_mixed_rules_exemption(self) -> None:
+        """Test that exemption only applies to the specific rule, not others."""
+        rules = [
+            SentinelRule(
+                id="SR.ADMIN",
+                pattern="sudo",
+                description="Admin only",
+                exempt_groups=["admins"],
+            ),
+            SentinelRule(
+                id="SR.BAD",
+                pattern="bad",
+                description="Nobody allowed",
+                exempt_groups=[],
+            ),
+        ]
+        sentinel = Sentinel(rules)
+        user_context = UserContext(user_id="u123", email="u123@example.com", groups=["admins"])
+
+        # Exempt from SR.ADMIN
+        sentinel.check("sudo make me a sandwich", user_context)
+
+        # NOT exempt from SR.BAD
+        with pytest.raises(SecurityException, match="SR.BAD"):
+            sentinel.check("this is bad", user_context)

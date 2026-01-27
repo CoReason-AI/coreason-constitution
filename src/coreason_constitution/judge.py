@@ -10,6 +10,8 @@
 
 from typing import List, Optional
 
+from coreason_identity.models import UserContext
+
 from coreason_constitution.interfaces import LLMClient
 from coreason_constitution.schema import Critique, Law, LawSeverity, Reference
 from coreason_constitution.utils.logger import logger
@@ -31,13 +33,20 @@ class ConstitutionalJudge:
         self.client = llm_client
         self.model = model_id
 
-    def evaluate(self, draft: str, laws: List[Law], references: Optional[List[Reference]] = None) -> Critique:
+    def evaluate(
+        self,
+        draft: str,
+        laws: List[Law],
+        references: Optional[List[Reference]] = None,
+        user_context: Optional[UserContext] = None,
+    ) -> Critique:
         """
         Evaluate a draft response against the provided laws and optional references.
 
         :param draft: The text content to evaluate.
         :param laws: A list of Law objects to enforce.
         :param references: A list of valid Reference objects to verify against.
+        :param user_context: The context of the user authoring the content.
         :return: A Critique object detailing any violations.
         """
         if not draft.strip():
@@ -65,6 +74,14 @@ class ConstitutionalJudge:
             "If multiple laws are violated, cite the most severe one. "
             "If the content is compliant, mark violation=false."
         )
+
+        # Inject User Context if present
+        if user_context:
+            system_prompt += (
+                f"\n\n--- AUTHOR CONTEXT ---\n"
+                f"User ID: {user_context.user_id}\n"
+                f"Roles: {user_context.groups}\n"
+            )
 
         # Format laws into a clear text block
         laws_text = "\n".join([f"Law ID: {law.id}\nCategory: {law.category.value}\nText: {law.text}" for law in laws])

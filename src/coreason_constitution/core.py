@@ -10,6 +10,8 @@
 
 from typing import Optional
 
+from coreason_identity.models import UserContext
+
 from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.exceptions import SecurityException
 from coreason_constitution.judge import ConstitutionalJudge
@@ -59,6 +61,7 @@ class ConstitutionalSystem:
         draft_response: str,
         context_tags: Optional[list[str]] = None,
         max_retries: int = 3,
+        user_context: Optional[UserContext] = None,
     ) -> ConstitutionalTrace:
         """
         Executes the full constitutional compliance cycle.
@@ -73,11 +76,12 @@ class ConstitutionalSystem:
         :param draft_response: The agent's proposed answer.
         :param context_tags: Optional context tags for law filtering.
         :param max_retries: Maximum number of revision attempts.
+        :param user_context: The context of the user authoring the content.
         :return: A ConstitutionalTrace object documenting the process.
         """
         # 1. Sentinel Check
         try:
-            self.sentinel.check(input_prompt)
+            self.sentinel.check(input_prompt, user_context=user_context)
         except SecurityException as e:
             logger.warning(f"ConstitutionalSystem: Sentinel blocked request. Reason: {e}")
 
@@ -109,7 +113,9 @@ class ConstitutionalSystem:
 
         # 3. Initial Judge Evaluation
         current_draft = draft_response
-        initial_critique = self.judge.evaluate(current_draft, active_laws, active_references)
+        initial_critique = self.judge.evaluate(
+            current_draft, active_laws, active_references, user_context=user_context
+        )
 
         if not initial_critique.violation:
             # Happy path: No violations found
@@ -153,7 +159,9 @@ class ConstitutionalSystem:
 
             # B. Evaluate Revision
             # The Revised content becomes the draft for the next check
-            next_critique = self.judge.evaluate(revised_content, active_laws, active_references)
+            next_critique = self.judge.evaluate(
+                revised_content, active_laws, active_references, user_context=user_context
+            )
 
             # C. Record Iteration
             iteration = TraceIteration(

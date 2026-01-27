@@ -241,3 +241,36 @@ def test_cli_complex_triggers(capsys: CaptureFixture[str]) -> None:
         assert output["critique"]["article_id"] == "GCP.4"
     else:
         assert output["critique"]["article_id"] == "REF.1"
+
+
+def test_cli_with_user_context(capsys: CaptureFixture[str]) -> None:
+    """Test CLI with user identity arguments."""
+    test_args = [
+        "main.py",
+        "--prompt",
+        "Hello",
+        "--draft",
+        "Draft",
+        "--user-id",
+        "u123",
+        "--user-email",
+        "u123@example.com",
+        "--user-roles",
+        "admin",
+        "staff",
+    ]
+    with patch.object(sys, "argv", test_args):
+        main()
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert output["status"] == "APPROVED"
+
+
+def test_cli_missing_email_for_user_context(capsys: CaptureFixture[str]) -> None:
+    """Test CLI fails when user-id is provided without user-email."""
+    test_args = ["main.py", "--prompt", "Hello", "--user-id", "u123"]
+    with patch.object(sys, "argv", test_args):
+        with pytest.raises(SystemExit) as excinfo:
+            main()
+        assert excinfo.value.code == 1

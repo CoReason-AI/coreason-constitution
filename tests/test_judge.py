@@ -12,6 +12,8 @@ from typing import List
 
 import pytest
 
+from coreason_identity.models import UserContext
+
 from coreason_constitution.judge import ConstitutionalJudge
 from coreason_constitution.schema import Critique, Law, LawCategory, LawSeverity
 from tests.mocks import MockLLMClient
@@ -138,3 +140,23 @@ def test_missing_article_id_fix(mock_client: MockLLMClient, basic_laws: List[Law
 
     assert result.violation is True
     assert result.article_id == "UNKNOWN"
+
+
+def test_evaluate_with_user_context(mock_client: MockLLMClient, basic_laws: List[Law]) -> None:
+    # Setup mock
+    compliant_critique = Critique(violation=False, reasoning="Safe for admin.")
+    mock_client.set_structured_response("admin content", compliant_critique)
+
+    judge = ConstitutionalJudge(mock_client)
+    user_context = UserContext(user_id="u123", email="u123@example.com", groups=["admin", "medical_director"])
+
+    result = judge.evaluate("This is admin content", basic_laws, user_context=user_context)
+
+    assert result.violation is False
+    assert mock_client.call_count == 1
+
+    # Verify context injection in System Prompt
+    system_prompt = mock_client.last_messages[0]["content"]
+    assert "--- AUTHOR CONTEXT ---" in system_prompt
+    assert "User ID: u123" in system_prompt
+    assert "medical_director" in system_prompt
