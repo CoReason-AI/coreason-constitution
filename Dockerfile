@@ -22,6 +22,10 @@ FROM python:3.12-slim AS runtime
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash appuser
+
+# Create logs directory and ensure permissions
+RUN mkdir -p /home/appuser/app/logs && chown -R appuser:appuser /home/appuser/app
+
 USER appuser
 
 # Add user's local bin to PATH
@@ -35,3 +39,5 @@ COPY --from=builder /wheels /wheels
 
 # Install the application wheel
 RUN pip install --no-cache-dir /wheels/*.whl
+
+CMD ["uvicorn", "coreason_constitution.server:app", "--host", "0.0.0.0", "--port", "8000"]
