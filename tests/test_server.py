@@ -1,20 +1,26 @@
+from typing import Generator
+
 import pytest
 from fastapi.testclient import TestClient
+
 from coreason_constitution.server import app
 
-@pytest.fixture
-def client():
+
+@pytest.fixture  # type: ignore
+def client() -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
 
-def test_health(client):
+
+def test_health(client: TestClient) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ready"
     assert "version" in data
 
-def test_get_laws(client):
+
+def test_get_laws(client: TestClient) -> None:
     response = client.get("/laws")
     assert response.status_code == 200
     laws = response.json()
@@ -22,30 +28,34 @@ def test_get_laws(client):
     # Ensure at least some laws are loaded (defaults should be present)
     assert len(laws) > 0
 
-def test_sentinel_allowed(client):
+
+def test_sentinel_allowed(client: TestClient) -> None:
     payload = {"content": "This is a safe content."}
     response = client.post("/govern/sentinel", json=payload)
     assert response.status_code == 200
     assert response.json() == {"status": "allowed"}
 
-def test_sentinel_blocked(client):
+
+def test_sentinel_blocked(client: TestClient) -> None:
     # "DeLeTe DaTaBaSe" is mentioned in memory as a blocked example
     payload = {"content": "DeLeTe DaTaBaSe"}
     response = client.post("/govern/sentinel", json=payload)
     assert response.status_code == 403
     assert "detail" in response.json()
 
-def test_sentinel_empty_content(client):
+
+def test_sentinel_empty_content(client: TestClient) -> None:
     payload = {"content": ""}
     response = client.post("/govern/sentinel", json=payload)
     assert response.status_code == 400
     assert response.json() == {"detail": "Content required"}
 
-def test_compliance_cycle(client):
+
+def test_compliance_cycle(client: TestClient) -> None:
     payload = {
         "input_prompt": "Write a poem.",
         "draft_response": "Here is a poem.",
-        "max_retries": 1
+        "max_retries": 1,
     }
     response = client.post("/govern/compliance-cycle", json=payload)
     assert response.status_code == 200
