@@ -12,6 +12,7 @@ from typing import Any
 from unittest.mock import Mock, create_autospec
 
 import pytest
+from coreason_identity.models import UserContext
 
 from coreason_constitution.archive import LegislativeArchive
 from coreason_constitution.core import ConstitutionalSystem
@@ -85,7 +86,7 @@ def test_sentinel_block(system: ConstitutionalSystem, mock_sentinel: Mock) -> No
     trace = system.run_compliance_cycle(input_prompt, draft_response)
 
     # Verify
-    mock_sentinel.check.assert_called_once_with(input_prompt)
+    mock_sentinel.check.assert_called_once_with(input_prompt, user_context=None)
 
     assert trace.status == TraceStatus.BLOCKED
     assert trace.critique.violation is True
@@ -117,9 +118,9 @@ def test_compliance_cycle_compliant(
     trace = system.run_compliance_cycle(input_prompt, draft_response, context_tags=["test"])
 
     # Verify Logic
-    mock_sentinel.check.assert_called_once_with(input_prompt)
+    mock_sentinel.check.assert_called_once_with(input_prompt, user_context=None)
     mock_archive.get_laws.assert_called_once_with(context_tags=["test"])
-    mock_judge.evaluate.assert_called_once_with(draft_response, laws, [])
+    mock_judge.evaluate.assert_called_once_with(draft_response, laws, [], user_context=None)
     mock_revision.revise.assert_not_called()
 
     assert trace.status == TraceStatus.APPROVED
@@ -260,7 +261,7 @@ def test_compliance_cycle_complex_context_filtering(
     # Verify correct tags passed to Archive
     mock_archive.get_laws.assert_called_once_with(context_tags=context_tags)
     # Verify the filtered laws (and ONLY them) passed to Judge
-    mock_judge.evaluate.assert_called_once_with(draft_response, filtered_laws, [])
+    mock_judge.evaluate.assert_called_once_with(draft_response, filtered_laws, [], user_context=None)
 
 
 def test_compliance_cycle_max_retries_exceeded(
@@ -353,3 +354,25 @@ def test_archive_failure_propagates(
 
     with pytest.raises(ValueError, match="Corrupt Archive"):
         system.run_compliance_cycle("Input", "Draft")
+
+
+def test_compliance_cycle_with_user_context(
+    system: ConstitutionalSystem,
+    mock_sentinel: Mock,
+    mock_archive: Mock,
+    mock_judge: Mock,
+) -> None:
+    """Verify that user_context is passed down to Sentinel and Judge."""
+    input_prompt = "Prompt"
+    draft_response = "Draft"
+    user_context = UserContext(user_id="u1", email="u1@example.com", groups=["admin"])
+
+    mock_sentinel.check.return_value = None
+    mock_archive.get_laws.return_value = []
+    mock_archive.get_references.return_value = []
+    mock_judge.evaluate.return_value = Critique(violation=False, reasoning="OK")
+
+    system.run_compliance_cycle(input_prompt, draft_response, user_context=user_context)
+
+    mock_sentinel.check.assert_called_once_with(input_prompt, user_context=user_context)
+    mock_judge.evaluate.assert_called_once_with(draft_response, [], [], user_context=user_context)
