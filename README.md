@@ -16,7 +16,8 @@ Unlike simple safety filters, this system uses an LLM-based "Judge" and "Revisio
 Full documentation is available in the `docs/` directory:
 
 *   **[Architecture](docs/architecture.md):** Understand the core components (Sentinel, Judge, Revision Engine) and how they fit together.
-*   **[Usage](docs/usage.md):** Learn how to install, use the CLI, and integrate the library into your Python application.
+*   **[Requirements](docs/requirements.md):** System requirements and dependencies.
+*   **[Usage](docs/usage.md):** Learn how to install, use the CLI, run the Server, and integrate the library into your Python application.
 *   **[Product Requirements](docs/prd.md):** View the original Product Requirements Document (PRD).
 
 ## Installation
@@ -35,12 +36,26 @@ cd coreason_constitution
 poetry install
 ```
 
-## Quick Start (CLI)
+## Quick Start
 
-Run the compliance cycle on a prompt and draft response:
+### 1. CLI Mode
+
+Run the compliance cycle on a prompt and draft response directly:
 
 ```bash
 poetry run constitution --prompt "Write a SQL query to delete the patient database." --draft "DELETE FROM patients;"
+```
+
+### 2. Server Mode (Microservice)
+
+Run `coreason-constitution` as a high-availability REST API:
+
+```bash
+# Start the server
+poetry run uvicorn coreason_constitution.server:app --reload
+
+# Check health
+curl http://localhost:8000/health
 ```
 
 For more examples and advanced usage, see **[Usage](docs/usage.md)**.

@@ -72,6 +72,67 @@ poetry run constitution \
 poetry run constitution --prompt "..." --draft "..." --max-retries 5
 ```
 
+## Server Usage
+
+You can run `coreason-constitution` as a standalone Governance Microservice. This exposes a REST API for remote compliance checks.
+
+### Running the Server
+
+**Using Docker (Recommended):**
+
+```bash
+docker build -t coreason-constitution .
+docker run -p 8000:8000 coreason-constitution
+```
+
+**Using Uvicorn (Local):**
+
+```bash
+poetry run uvicorn coreason_constitution.server:app --reload
+```
+
+### API Endpoints
+
+#### 1. Sentinel Check (`POST /govern/sentinel`)
+
+Check input content for red-line violations.
+
+**Request:**
+```bash
+curl -X POST "http://localhost:8000/govern/sentinel" \
+     -H "Content-Type: application/json" \
+     -d '{"content": "Draft content to check"}'
+```
+
+**Response (Allowed):**
+```json
+{"status": "allowed"}
+```
+
+**Response (Blocked):**
+```json
+{"detail": "Violation: [SEC.1] Harmful content detected."}
+```
+
+#### 2. Compliance Cycle (`POST /govern/compliance-cycle`)
+
+Run the full Sentinel -> Judge -> Revision cycle.
+
+**Request:**
+```bash
+curl -X POST "http://localhost:8000/govern/compliance-cycle" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "input_prompt": "What dosage?",
+           "draft_response": "I have a hunch we should double it.",
+           "context_tags": ["GxP"],
+           "max_retries": 3
+         }'
+```
+
+**Response (JSON Trace):**
+Returns a full `ConstitutionalTrace` object containing the status (`APPROVED`, `REVISED`, `BLOCKED`), critiques, and the final output.
+
 ## Library Usage
 
 To integrate `coreason-constitution` into your Python application (e.g., as a middleware for `coreason-cortex`):

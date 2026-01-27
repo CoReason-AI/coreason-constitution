@@ -4,5 +4,6 @@ theme:
 nav:
   - Home: index.md
   - Architecture: architecture.md
+  - Requirements: requirements.md
   - Usage: usage.md
   - Product Requirements: prd.md
