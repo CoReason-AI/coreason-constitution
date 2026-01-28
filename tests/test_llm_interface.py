@@ -15,7 +15,7 @@ from coreason_constitution.interfaces import LLMClient
 from tests.mocks import MockLLMClient
 
 
-class TestModel(BaseModel):
+class ResponseModel(BaseModel):
     reasoning: str
     score: int
 
@@ -51,11 +51,11 @@ def test_chat_completion_canned_response() -> None:
 def test_structured_output_canned() -> None:
     """Test setting and retrieving a canned structured response."""
     client = MockLLMClient()
-    expected_obj = TestModel(reasoning="Because logic", score=10)
+    expected_obj = ResponseModel(reasoning="Because logic", score=10)
     client.set_structured_response("evaluate", expected_obj)
 
     response = client.structured_output(
-        [{"role": "user", "content": "Please evaluate this"}], response_model=TestModel, model="gpt-4"
+        [{"role": "user", "content": "Please evaluate this"}], response_model=ResponseModel, model="gpt-4"
     )
 
     assert response == expected_obj
@@ -85,9 +85,9 @@ def test_empty_messages() -> None:
 
     # Structured should probably fail if it relies on content matching, or fallback
     # Since content is empty "", no trigger matches.
-    # It tries to instantiate TestModel(). TestModel has required fields, so it fails.
+    # It tries to instantiate ResponseModel(). ResponseModel has required fields, so it fails.
     with pytest.raises(ValueError):
-        client.structured_output([], response_model=TestModel, model="gpt-4")
+        client.structured_output([], response_model=ResponseModel, model="gpt-4")
 
 
 def test_parameter_passing() -> None:
